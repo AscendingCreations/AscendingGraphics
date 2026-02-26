@@ -25,7 +25,7 @@ rayon = "1.11.0"
 [workspace.dependencies.camera]
 package = "ascending_camera"
 path = "./camera"
-version = "0.7.0"
+version = "0.8.0"
 
 [workspace.dependencies.input]
 package = "ascending_input" 

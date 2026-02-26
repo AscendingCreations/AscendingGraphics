@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+## 0.37.0 (26. Feb, 2026)
+
+### Changes
+- (Breaking) Updated Cosmic-text 0.18.2 and Glam 0.32.0
+
 ## 0.36.0 (31. Jan, 2026)
 
 ### Changes

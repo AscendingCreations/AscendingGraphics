@@ -150,14 +150,14 @@ dependencies = [
 
 [[package]]
 name = "ascending_camera"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "glam",
 ]
 
 [[package]]
 name = "ascending_graphics"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "ahash",
  "ascending_camera",
