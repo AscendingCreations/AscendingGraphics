@@ -1,14 +1,14 @@
 [package]
 name = "ascending_graphics"
-version = "0.37.0"
+version = "0.37.1"
 authors = ["S.J.R. van Schaik", "Andrew Wheeler <genusistimelord@gmail.com>"]
 license = "MIT OR Apache-2.0"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.94"
 readme = "README.md"
 documentation = "https://docs.rs/ascending_graphics"
 keywords = ["wgpu", "rendering", "2d", ]
-repository = "https://github.com/AscendingCreations/AscendingLibraries"
+repository = "https://github.com/AscendingCreations/AscendingGraphics"
 description = "A graphical rendering library for 2D, using wgpu and winit."
 categories = ["game-development", "graphics"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -41,17 +41,17 @@ rayon = { version = "1.11.0", optional = true }
 [dependencies.camera]
 package = "ascending_camera"
 path = "../AscendingCamera"
-version = "0.7.0"
+version = "0.8.1"
 
 [dependencies.input]
 package = "ascending_input" 
 path = "../AscendingInput"
-version = "0.6.0"
+version = "0.6.1"
 
 [dependencies.time]
 package = "ascending_time" 
 path = "../AscendingTime"
-version = "0.2.0"
+version = "0.2.1"
 
 [dependencies.naga]
 #git = "https://github.com/gfx-rs/wgpu"
