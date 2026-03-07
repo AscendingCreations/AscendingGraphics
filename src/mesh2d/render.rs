@@ -1,6 +1,6 @@
 use crate::{
     AsBufferPass, GpuRenderer, GraphicsError, Mesh2D, Mesh2DRenderPipeline,
-    Mesh2DVertex, OrderedIndex, SetBuffers, System, VertexBuffer,
+    Mesh2DVertex, OrderedIndex, SetBuffers, VertexBuffer,
 };
 
 #[derive(Debug)]
@@ -13,7 +13,7 @@ impl Mesh2DRenderer {
     ///
     pub fn new(renderer: &GpuRenderer) -> Result<Self, GraphicsError> {
         Ok(Self {
-            vbos: VertexBuffer::new(renderer.gpu_device(), 512),
+            vbos: VertexBuffer::new(renderer.gpu_device()),
         })
     }
 
@@ -58,20 +58,12 @@ impl Mesh2DRenderer {
 
         self.add_buffer_store(renderer, index, buffer_layer);
     }
-
-    /// Sets the Instance Buffer to enable Rendering With Scissor Clipping.
-    /// This must be Set for the Optional Bounds to be used.
-    ///
-    pub fn use_clipping(&mut self) {
-        self.vbos.set_as_clipped();
-    }
 }
 
 /// Trait used to Grant Direct [`Mesh2D`] Rendering to [`wgpu::RenderPass`]
-pub trait RenderMesh2D<'a, 'b, Controls>
+pub trait RenderMesh2D<'a, 'b>
 where
     'b: 'a,
-    Controls: camera::controls::Controls,
 {
     /// Renders the all [`Mesh2D`]'s within the buffer layer to screen that have been processed and finalized.
     ///
@@ -79,75 +71,36 @@ where
         &mut self,
         renderer: &'b GpuRenderer,
         buffer: &'b Mesh2DRenderer,
-        system: &'b System<Controls>,
         buffer_layer: usize,
     );
 }
 
-impl<'a, 'b, Controls> RenderMesh2D<'a, 'b, Controls> for wgpu::RenderPass<'a>
+impl<'a, 'b> RenderMesh2D<'a, 'b> for wgpu::RenderPass<'a>
 where
     'b: 'a,
-    Controls: camera::controls::Controls,
 {
     fn render_2dmeshs(
         &mut self,
         renderer: &'b GpuRenderer,
         buffer: &'b Mesh2DRenderer,
-        system: &'b System<Controls>,
         buffer_layer: usize,
     ) {
-        if let Some(vbos) = buffer.vbos.buffers.get(buffer_layer)
-            && !vbos.is_empty()
-        {
+        let vbos = buffer.vbos.get_layer(buffer_layer);
+
+        if !vbos.is_empty() {
             self.set_buffers(buffer.vbos.as_buffer_pass());
             self.set_pipeline(
                 renderer.get_pipelines(Mesh2DRenderPipeline).unwrap(),
             );
 
-            if buffer.vbos.is_clipped() {
-                let mut scissor_is_default = true;
-
-                for (details, bounds, camera_view) in vbos {
-                    if let Some(bounds) = bounds {
-                        let bounds =
-                            system.world_to_screen(*camera_view, bounds);
-
-                        self.set_scissor_rect(
-                            bounds.x as u32,
-                            bounds.y as u32,
-                            bounds.z as u32,
-                            bounds.w as u32,
-                        );
-                        scissor_is_default = false;
-                    }
-                    // Indexs can always start at 0 per mesh data.
-                    // Base vertex is the Addition to the Index
-                    self.draw_indexed(
-                        details.indices_start..details.indices_end,
-                        details.vertex_base, //i as i32 * details.max,
-                        0..1,
-                    );
-
-                    if !scissor_is_default {
-                        self.set_scissor_rect(
-                            0,
-                            0,
-                            system.screen_size[0] as u32,
-                            system.screen_size[1] as u32,
-                        );
-                        scissor_is_default = true;
-                    };
-                }
-            } else {
-                for (details, _bounds, _camer_type) in vbos {
-                    // Indexs can always start at 0 per mesh data.
-                    // Base vertex is the Addition to the Index
-                    self.draw_indexed(
-                        details.indices_start..details.indices_end,
-                        details.vertex_base, //i as i32 * details.max,
-                        0..1,
-                    );
-                }
+            for (_layer, details) in vbos {
+                // Indexs can always start at 0 per mesh data.
+                // Base vertex is the Addition to the Index
+                self.draw_indexed(
+                    details.indices_start..details.indices_end,
+                    details.vertex_base, //i as i32 * details.max,
+                    0..1,
+                );
             }
 
             //we need to reset this back for anything else that might need it after mesh is drawn.
