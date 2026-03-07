@@ -23,20 +23,14 @@ pub type ClippedInstanceDetails = (InstanceDetails, Option<Bounds>, CameraView);
 /// of GPU uploads we make.
 #[derive(Debug)]
 pub struct InstanceBuffer<K: BufferLayout> {
-    /// Unprocessed Buffer Data.
-    pub unprocessed: Vec<Vec<OrderedIndex>>,
+    /// Unprocessed Buffer Data. (layer, order_index)
+    pub unprocessed: Vec<(usize, OrderedIndex)>,
     /// Buffers ready to Render
     pub buffers: Vec<Option<InstanceDetails>>,
-    /// Clipped Buffers ready to Render.
-    pub clipped_buffers: Vec<Vec<ClippedInstanceDetails>>,
     /// The main Buffer within GPU memory.
     pub buffer: Buffer<K>,
-    /// Size each Buffer Layer gets allocated to for Future buffers.
-    pub layer_size: usize,
     /// Used to Resize the buffer if new data will not fit within.
     needed_size: usize,
-    /// Deturmines if we need to use clipped_buffers or Buffers for Rendering.
-    is_clipped: bool,
 }
 
 impl<K: BufferLayout> InstanceBuffer<K> {
@@ -45,26 +39,18 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     ///
     /// # Arguments
     /// - data: The contents to Create the Buffer with.
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
     ///
-    pub fn create_buffer(
-        gpu_device: &GpuDevice,
-        data: &[u8],
-        layer_size: usize,
-    ) -> Self {
+    pub fn create_buffer(gpu_device: &GpuDevice, data: &[u8]) -> Self {
         InstanceBuffer {
             unprocessed: Vec::new(),
             buffers: Vec::new(),
-            clipped_buffers: Vec::new(),
             buffer: Buffer::new(
                 gpu_device,
                 data,
                 wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 Some("Instance Buffer"),
             ),
-            layer_size: layer_size.max(32),
             needed_size: 0,
-            is_clipped: false,
         }
     }
 
@@ -73,41 +59,26 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     ///
     /// # Arguments
     /// - data: The contents to Create the Buffer with.
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
-    /// - capacity: the capacity of Layers to precreate.
-    /// - layer_capacity: the capacity to which each layer will precreate.
+    /// - capacity: the pre-capacity of objects to insert
     ///
     pub fn create_buffer_with(
         gpu_device: &GpuDevice,
         data: &[u8],
-        layer_size: usize,
         capacity: usize,
-        layer_capacity: usize,
     ) -> Self {
-        let layer = layer_capacity.max(32);
         let size = capacity.max(1);
-        let mut unprocessed = Vec::with_capacity(size);
-        let mut clipped_buffers = Vec::with_capacity(size);
-
-        for _ in 0..size {
-            unprocessed.push(Vec::with_capacity(layer));
-
-            clipped_buffers.push(Vec::with_capacity(layer));
-        }
+        let unprocessed = Vec::with_capacity(size);
 
         InstanceBuffer {
             unprocessed,
             buffers: Vec::with_capacity(size),
-            clipped_buffers,
             buffer: Buffer::new(
                 gpu_device,
                 data,
                 wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 Some("Instance Buffer"),
             ),
-            layer_size: layer_size.max(32),
             needed_size: 0,
-            is_clipped: false,
         }
     }
 
@@ -125,22 +96,8 @@ impl<K: BufferLayout> InstanceBuffer<K> {
         buffer_layer: usize,
     ) {
         if let Some(store) = renderer.get_buffer(index.index) {
-            let offset = buffer_layer.saturating_add(1);
-
-            if self.unprocessed.len() < offset {
-                let mut expansions = (self.unprocessed.len()..offset)
-                    .into_par_iter()
-                    .map(|_| Vec::with_capacity(self.layer_size))
-                    .collect();
-
-                self.unprocessed.append(&mut expansions);
-            }
-
             self.needed_size += store.store.len();
-
-            if let Some(unprocessed) = self.unprocessed.get_mut(buffer_layer) {
-                unprocessed.push(index);
-            }
+            self.unprocessed.push((buffer_layer, index));
         }
     }
 
@@ -176,7 +133,8 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     /// Processes all unprocessed listed buffers and uploads any changes to the gpu
     /// This must be called after [`InstanceBuffer::add_buffer_store`] in order to Render the Objects.
     pub fn finalize(&mut self, renderer: &mut GpuRenderer) {
-        let (mut changed, mut pos, mut count) = (false, 0, 0);
+        let (mut changed, mut pos, mut count, mut last_layer, mut start_pos) =
+            (false, 0, 0, 0, 0);
 
         if self.needed_size > self.buffer.max {
             self.resize(renderer.gpu_device(), self.needed_size / K::stride());
@@ -185,74 +143,49 @@ impl<K: BufferLayout> InstanceBuffer<K> {
 
         self.buffer.count = self.needed_size / K::stride();
         self.buffer.len = self.needed_size;
+        self.unprocessed.par_sort();
+        self.buffers.clear();
 
-        self.unprocessed
-            .par_iter_mut()
-            .for_each(|processing| processing.par_sort());
-
-        if self.is_clipped {
-            self.clipped_buffers.par_iter_mut().for_each(|buffer| {
-                buffer.clear();
-            });
-
-            if self.clipped_buffers.len() < self.unprocessed.len() {
-                for i in self.clipped_buffers.len()..self.unprocessed.len() {
-                    let count = self.unprocessed.get(i).unwrap().len();
-                    self.clipped_buffers.push(Vec::with_capacity(count));
+        for processing in self.unprocessed.iter() {
+            if last_layer != processing.0 {
+                // set the buffer to the last known start and count.
+                if count != 0 {
+                    self.buffers.push(Some(InstanceDetails {
+                        start: start_pos,
+                        end: count,
+                    }));
                 }
+
+                start_pos = count;
+
+                //add in any empty layers for a faster lookup when rendering based on layer.
+                if last_layer + 1 != processing.0 {
+                    for _ in last_layer + 1..processing.0 {
+                        self.buffers.push(None);
+                    }
+                }
+
+                last_layer = processing.0;
             }
-        } else {
-            self.buffers.clear();
+
+            self.buffer_write(
+                renderer,
+                &processing.1,
+                &mut pos,
+                &mut count,
+                changed,
+            );
         }
 
-        for (layer, processing) in self.unprocessed.iter().enumerate() {
-            if processing.is_empty() {
-                if !self.is_clipped {
-                    self.buffers.push(None);
-                }
-                continue;
-            }
-
-            let mut start_pos = count;
-
-            if !self.is_clipped {
-                for buf in processing {
-                    self.buffer_write(
-                        renderer, buf, &mut pos, &mut count, changed,
-                    );
-                }
-
-                self.buffers.push(Some(InstanceDetails {
-                    start: start_pos,
-                    end: count,
-                }));
-            } else {
-                for buf in processing {
-                    self.buffer_write(
-                        renderer, buf, &mut pos, &mut count, changed,
-                    );
-
-                    if let Some(buffer) = self.clipped_buffers.get_mut(layer) {
-                        buffer.push((
-                            InstanceDetails {
-                                start: start_pos,
-                                end: count,
-                            },
-                            buf.bounds,
-                            buf.camera_view,
-                        ));
-                    }
-
-                    start_pos = count;
-                }
-            }
+        if start_pos != count {
+            self.buffers.push(Some(InstanceDetails {
+                start: start_pos,
+                end: count,
+            }));
         }
 
         self.needed_size = 0;
-
-        self.unprocessed.par_iter_mut().for_each(|buffer| {
-            buffer.clear();
-        });
+        self.unprocessed.clear();
     }
 
     //private but resizes the buffer on the GPU when needed.
@@ -270,15 +203,8 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     /// Creates an [`InstanceBuffer`] with a default buffer size.
     /// Buffer size is based on the initial [`crate::BufferLayout::default_buffer`] length.
     ///
-    /// # Arguments
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
-    ///
-    pub fn new(gpu_device: &GpuDevice, layer_size: usize) -> Self {
-        Self::create_buffer(
-            gpu_device,
-            &K::default_buffer().vertexs,
-            layer_size,
-        )
+    pub fn new(gpu_device: &GpuDevice) -> Self {
+        Self::create_buffer(gpu_device, &K::default_buffer().vertexs)
     }
 
     /// Returns the instances count.
@@ -299,20 +225,6 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     /// Returns instance buffers max size in bytes.
     pub fn max(&self) -> usize {
         self.buffer.max
-    }
-
-    /// Returns if the buffer is clipped or not to deturmine if you should use
-    /// buffers or clipped_buffers.
-    pub fn is_clipped(&self) -> bool {
-        self.is_clipped
-    }
-
-    /// Sets the Buffer into Clipping mode.
-    /// This will Produce a clipped_buffers instead of the buffers which
-    /// will still be layered but a Vector of individual objects will Exist rather
-    /// than a grouped object per layer. Will make it less Efficient but allows Bounds Clipping.
-    pub fn set_as_clipped(&mut self) {
-        self.is_clipped = true;
     }
 
     /// Returns buffer's stride.
@@ -340,18 +252,9 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     /// Buffer size is based on the initial [`crate::BufferLayout::default_buffer`] length.
     ///
     /// # Arguments
-    /// - capacity: The capacity of the Buffers instances for future allocation.
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
+    /// - capacity: The capacity allocated for any future elements.
     ///
-    pub fn with_capacity(
-        gpu_device: &GpuDevice,
-        capacity: usize,
-        layer_size: usize,
-    ) -> Self {
-        Self::create_buffer(
-            gpu_device,
-            &K::with_capacity(capacity, 0).vertexs,
-            layer_size,
-        )
+    pub fn with_capacity(gpu_device: &GpuDevice, capacity: usize) -> Self {
+        Self::create_buffer(gpu_device, &K::with_capacity(capacity, 0).vertexs)
     }
 }

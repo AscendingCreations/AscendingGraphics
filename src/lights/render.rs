@@ -91,7 +91,7 @@ impl LightRenderer {
                 });
 
         Ok(Self {
-            buffer: InstanceBuffer::new(renderer.gpu_device(), 32),
+            buffer: InstanceBuffer::new(renderer.gpu_device()),
             dir_buffer,
             area_buffer,
             area_bind_group,

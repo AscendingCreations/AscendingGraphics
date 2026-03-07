@@ -119,7 +119,7 @@ impl TextRenderer {
     ///
     pub fn new(renderer: &GpuRenderer) -> Result<Self, GraphicsError> {
         Ok(Self {
-            buffer: InstanceBuffer::new(renderer.gpu_device(), 1024),
+            buffer: InstanceBuffer::with_capacity(renderer.gpu_device(), 1024),
             swash_cache: SwashCache::new(),
         })
     }
@@ -196,14 +196,6 @@ where
         atlas: &'b TextAtlas,
         buffer_layer: usize,
     ) {
-        if buffer.buffer.is_clipped() {
-            #[cfg(feature = "logging")]
-            error!(
-                "Text uses its own clipping mechanisim it does not need to be clipped by the clipper. render_text will be skipped."
-            );
-            return;
-        }
-
         if let Some(Some(details)) = buffer.buffer.buffers.get(buffer_layer)
             && buffer.buffer.count() > 0
         {
