@@ -1,4 +1,4 @@
-use crate::{Bounds, CameraView, Vec3};
+use crate::Vec3;
 use slotmap::new_key_type;
 use std::cmp::Ordering;
 
@@ -80,10 +80,6 @@ pub struct OrderedIndex {
     pub(crate) index_count: u32,
     /// Stores the VBO buffers indices max count.
     pub(crate) index_max: u32,
-    /// Stores buffers optional Bounds for scissor clipping.
-    pub(crate) bounds: Option<Bounds>,
-    /// Stores the buffers Camera Type for Rendering Aspects.
-    pub(crate) camera_view: CameraView,
 }
 
 impl PartialOrd for OrderedIndex {
@@ -114,27 +110,6 @@ impl OrderedIndex {
             index,
             index_count: 0,
             index_max,
-            bounds: None,
-            camera_view: CameraView::MainView,
-        }
-    }
-
-    /// Creates a OrderedIndex with DrawOrder, Buffer Index and Index Max,
-    /// Clip bounds and Camera Type.
-    pub fn new_with_bounds(
-        order: DrawOrder,
-        index: Index,
-        index_max: u32,
-        bounds: Option<Bounds>,
-        camera_view: CameraView,
-    ) -> Self {
-        Self {
-            order,
-            index,
-            index_count: 0,
-            index_max,
-            bounds,
-            camera_view,
         }
     }
 }

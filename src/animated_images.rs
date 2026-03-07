@@ -273,12 +273,6 @@ impl AnimImage {
             self.changed = false;
         }
 
-        OrderedIndex::new_with_bounds(
-            self.order,
-            self.store_id,
-            0,
-            self.bounds,
-            self.camera_view,
-        )
+        OrderedIndex::new(self.order, self.store_id, 0)
     }
 }

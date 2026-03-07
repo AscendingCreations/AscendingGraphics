@@ -1,6 +1,6 @@
 use crate::{
-    AsBufferPass, Bounds, Buffer, BufferData, BufferLayout, BufferPass,
-    CameraView, GpuDevice, GpuRenderer, OrderedIndex, parallel::*,
+    AsBufferPass, Buffer, BufferData, BufferLayout, BufferPass, GpuDevice,
+    GpuRenderer, OrderedIndex, parallel::*,
 };
 use std::ops::Range;
 
@@ -17,30 +17,23 @@ pub struct IndexDetails {
     pub vertex_base: i32,
 }
 
-/// Clipped buffers Tuple type.
-pub type ClippedIndexDetails = (IndexDetails, Option<Bounds>, CameraView);
-
 /// VertexBuffer holds all the Details to render with Verticies and indicies.
 /// This stores and handles the orders of all rendered objects to try and reduce the amount
 /// of GPU uploads we make.
 #[derive(Debug)]
 pub struct VertexBuffer<K: BufferLayout> {
     /// Unprocessed Buffer Data.
-    pub unprocessed: Vec<Vec<OrderedIndex>>,
+    pub unprocessed: Vec<(usize, OrderedIndex)>,
     /// Buffers ready to Render
-    pub buffers: Vec<Vec<ClippedIndexDetails>>,
+    pub buffers: Vec<(usize, IndexDetails)>,
     /// The main Vertex Buffer within GPU memory.
     pub vertex_buffer: Buffer<K>,
     /// The main Index Buffer within GPU memory.
     pub index_buffer: Buffer<K>,
-    /// Size each Buffer Layer gets allocated to for Future buffers.
-    pub layer_size: usize,
     /// Used to Resize the vertex buffer if new data will not fit within.
     vertex_needed: usize,
     /// Used to Resize the index buffer if new data will not fit within.
     index_needed: usize,
-    /// Deturmines if we need to use Clip the buffer during Rendering.
-    is_clipped: bool,
 }
 
 impl<'a, K: BufferLayout> AsBufferPass<'a> for VertexBuffer<K> {
@@ -58,13 +51,8 @@ impl<K: BufferLayout> VertexBuffer<K> {
     ///
     /// # Arguments
     /// - buffers: The (Vertex:Vec<u8>, Indices:Vec<u8>) to Create the Buffer with.
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
     ///
-    pub fn create_buffer(
-        gpu_device: &GpuDevice,
-        buffers: &BufferData,
-        layer_size: usize,
-    ) -> Self {
+    pub fn create_buffer(gpu_device: &GpuDevice, buffers: &BufferData) -> Self {
         VertexBuffer {
             unprocessed: Vec::new(),
             buffers: Vec::new(),
@@ -82,8 +70,6 @@ impl<K: BufferLayout> VertexBuffer<K> {
                 Some("Index Buffer"),
             ),
             index_needed: 0,
-            layer_size: layer_size.max(32),
-            is_clipped: false,
         }
     }
 
@@ -92,27 +78,17 @@ impl<K: BufferLayout> VertexBuffer<K> {
     ///
     /// # Arguments
     /// - buffers: The (Vertex:Vec<u8>, Indices:Vec<u8>) to Create the Buffer with.
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
-    /// - capacity: the capacity of Layers to precreate.
-    /// - layer_capacity: the capacity to which each layer will precreate.
+    /// - capacity: the capacity of Elements to precreate.
     ///
     pub fn create_buffer_with(
         gpu_device: &GpuDevice,
         buffers: &BufferData,
-        layer_size: usize,
         capacity: usize,
-        layer_capacity: usize,
     ) -> Self {
-        let layer = layer_capacity.max(32);
         let size = capacity.max(1);
-        let mut unprocessed = Vec::with_capacity(size);
-
-        for _ in 0..size {
-            unprocessed.push(Vec::with_capacity(layer));
-        }
 
         VertexBuffer {
-            unprocessed,
+            unprocessed: Vec::with_capacity(size),
             buffers: Vec::with_capacity(size),
             vertex_buffer: Buffer::new(
                 gpu_device,
@@ -128,8 +104,6 @@ impl<K: BufferLayout> VertexBuffer<K> {
                 Some("Index Buffer"),
             ),
             index_needed: 0,
-            layer_size: layer_size.max(32),
-            is_clipped: false,
         }
     }
 
@@ -147,26 +121,12 @@ impl<K: BufferLayout> VertexBuffer<K> {
         buffer_layer: usize,
     ) {
         if let Some(store) = renderer.get_buffer(index.index) {
-            let offset = buffer_layer.saturating_add(1);
-            // add in the missing layers this is better than keeping a hash since
-            // if at anytime a process adds new data to a older layer it will already Exist.
-            if self.unprocessed.len() < offset {
-                for _ in self.unprocessed.len()..offset {
-                    //Push the layer buffer. if this is a layer we are adding data too lets
-                    //give it a starting size. this can be adjusted later for better performance
-                    //versus ram usage.
-                    self.unprocessed.push(Vec::with_capacity(self.layer_size));
-                }
-            }
-
             self.vertex_needed += store.store.len();
             self.index_needed += store.indexs.len();
 
             index.index_count = store.indexs.len() as u32 / 4;
 
-            if let Some(unprocessed) = self.unprocessed.get_mut(buffer_layer) {
-                unprocessed.push(index);
-            }
+            self.unprocessed.push((buffer_layer, index));
         }
     }
 
@@ -194,107 +154,76 @@ impl<K: BufferLayout> VertexBuffer<K> {
 
         self.vertex_buffer.count = self.vertex_needed / K::stride();
         self.vertex_buffer.len = self.vertex_needed;
+        self.unprocessed.par_sort();
+        self.buffers.clear();
 
-        self.unprocessed
-            .par_iter_mut()
-            .for_each(|processing| processing.par_sort());
+        for (layer, buf) in self.unprocessed.iter() {
+            let mut write_vertex = false;
+            let mut write_index = false;
+            let old_vertex_pos = vertex_pos as u64;
+            let old_index_pos = index_pos as u64;
 
-        if self.buffers.len() < self.unprocessed.len() {
-            for i in self.buffers.len()..self.unprocessed.len() {
-                let count = self.unprocessed.get(i).unwrap().len();
-                self.buffers.push(Vec::with_capacity(count));
+            if let Some(store) = renderer.get_buffer_mut(buf.index) {
+                if store.indexs.is_empty() {
+                    continue;
+                }
+
+                let vertex_range = vertex_pos..vertex_pos + store.store.len();
+                let index_range = index_pos..index_pos + store.indexs.len();
+
+                if store.store_pos != vertex_range || changed || store.changed {
+                    store.store_pos = vertex_range;
+                    write_vertex = true
+                }
+
+                if store.index_pos != index_range || changed || store.changed {
+                    store.index_pos = index_range;
+                    write_index = true
+                }
+
+                if write_index || write_vertex {
+                    store.changed = false;
+                }
+
+                vertex_pos += store.store.len();
+                index_pos += store.indexs.len();
             }
+
+            if write_vertex && let Some(store) = renderer.get_buffer(buf.index)
+            {
+                self.vertex_buffer.write(
+                    renderer.queue(),
+                    &store.store,
+                    old_vertex_pos,
+                );
+            }
+
+            if write_index && let Some(store) = renderer.get_buffer(buf.index) {
+                self.index_buffer.write(
+                    renderer.queue(),
+                    &store.indexs,
+                    old_index_pos,
+                );
+            }
+
+            let indices_start = pos;
+            let indices_end = pos + buf.index_count;
+            let vertex_base = base_vertex;
+
+            base_vertex += buf.index_max as i32 + 1;
+            pos += buf.index_count;
+
+            self.buffers.push((
+                *layer,
+                IndexDetails {
+                    indices_start,
+                    indices_end,
+                    vertex_base,
+                },
+            ));
         }
 
-        self.buffers
-            .par_iter_mut()
-            .for_each(|buffer| buffer.clear());
-
-        for (layer, processing) in self.unprocessed.iter().enumerate() {
-            for buf in processing {
-                let mut write_vertex = false;
-                let mut write_index = false;
-                let old_vertex_pos = vertex_pos as u64;
-                let old_index_pos = index_pos as u64;
-
-                if let Some(store) = renderer.get_buffer_mut(buf.index) {
-                    if store.indexs.is_empty() {
-                        continue;
-                    }
-
-                    let vertex_range =
-                        vertex_pos..vertex_pos + store.store.len();
-                    let index_range = index_pos..index_pos + store.indexs.len();
-
-                    if store.store_pos != vertex_range
-                        || changed
-                        || store.changed
-                    {
-                        store.store_pos = vertex_range;
-                        write_vertex = true
-                    }
-
-                    if store.index_pos != index_range
-                        || changed
-                        || store.changed
-                    {
-                        store.index_pos = index_range;
-                        write_index = true
-                    }
-
-                    if write_index || write_vertex {
-                        store.changed = false;
-                    }
-
-                    vertex_pos += store.store.len();
-                    index_pos += store.indexs.len();
-                }
-
-                if write_vertex
-                    && let Some(store) = renderer.get_buffer(buf.index)
-                {
-                    self.vertex_buffer.write(
-                        renderer.queue(),
-                        &store.store,
-                        old_vertex_pos,
-                    );
-                }
-
-                if write_index
-                    && let Some(store) = renderer.get_buffer(buf.index)
-                {
-                    self.index_buffer.write(
-                        renderer.queue(),
-                        &store.indexs,
-                        old_index_pos,
-                    );
-                }
-
-                let indices_start = pos;
-                let indices_end = pos + buf.index_count;
-                let vertex_base = base_vertex;
-
-                base_vertex += buf.index_max as i32 + 1;
-                pos += buf.index_count;
-
-                if let Some(buffer) = self.buffers.get_mut(layer) {
-                    buffer.push((
-                        IndexDetails {
-                            indices_start,
-                            indices_end,
-                            vertex_base,
-                        },
-                        buf.bounds,
-                        buf.camera_view,
-                    ));
-                }
-            }
-        }
-
-        self.unprocessed
-            .par_iter_mut()
-            .for_each(|buffer| buffer.clear());
-
+        self.unprocessed.clear();
         self.vertex_needed = 0;
         self.index_needed = 0;
     }
@@ -352,8 +281,8 @@ impl<K: BufferLayout> VertexBuffer<K> {
     /// # Arguments
     /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
     ///
-    pub fn new(device: &GpuDevice, layer_size: usize) -> Self {
-        Self::create_buffer(device, &K::default_buffer(), layer_size)
+    pub fn new(device: &GpuDevice) -> Self {
+        Self::create_buffer(device, &K::default_buffer())
     }
 
     /// Set the Index based on how many Vertex's Exist
@@ -369,20 +298,6 @@ impl<K: BufferLayout> VertexBuffer<K> {
     /// Returns if the vertex buffer is empty
     pub fn is_empty(&self) -> bool {
         self.vertex_buffer.count == 0
-    }
-
-    /// Returns if the buffer is clipped or not to deturmine if you should use
-    /// buffers or clipped_buffers.
-    pub fn is_clipped(&self) -> bool {
-        self.is_clipped
-    }
-
-    /// Sets the Buffer into Clipping mode.
-    /// This will Produce a clipped_buffers instead of the buffers which
-    /// will still be layered but a Vector of individual objects will Exist rather
-    /// than a grouped object per layer. Will make it less Efficient but allows Bounds Clipping.
-    pub fn set_as_clipped(&mut self) {
-        self.is_clipped = true;
     }
 
     /// Returns vertex_buffer's max size in bytes.
@@ -416,17 +331,18 @@ impl<K: BufferLayout> VertexBuffer<K> {
     ///
     /// # Arguments
     /// - capacity: The capacity of the Buffers instances for future allocation * 2.
-    /// - layer_size: The capacity allocated for any future elements per new Buffer Layer.
     ///
-    pub fn with_capacity(
-        gpu_device: &GpuDevice,
-        capacity: usize,
-        layer_size: usize,
-    ) -> Self {
+    pub fn with_capacity(gpu_device: &GpuDevice, capacity: usize) -> Self {
         Self::create_buffer(
             gpu_device,
             &K::with_capacity(capacity, capacity * 2),
-            layer_size,
         )
+    }
+
+    pub fn get_layer(&self, layer: usize) -> &[(usize, IndexDetails)] {
+        let start = self.buffers.partition_point(|(l, _)| *l < layer);
+        let end = self.buffers.partition_point(|(l, _)| *l <= layer);
+
+        &self.buffers[start..end]
     }
 }
