@@ -70,7 +70,7 @@ impl MapRenderer {
         Ok(Self {
             buffer: InstanceBuffer::with_capacity(
                 renderer.gpu_device(),
-                9_216 * 144 * map_count as usize,
+                9_216 * map_count as usize,
             ),
             map_buffer,
             map_bind_group,

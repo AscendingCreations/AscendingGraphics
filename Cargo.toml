@@ -40,17 +40,17 @@ rayon = { version = "1.11.0", optional = true }
 
 [dependencies.camera]
 package = "ascending_camera"
-path = "../AscendingCamera"
+#path = "../AscendingCamera"
 version = "0.8.1"
 
 [dependencies.input]
 package = "ascending_input" 
-path = "../AscendingInput"
+#path = "../AscendingInput"
 version = "0.6.1"
 
 [dependencies.time]
 package = "ascending_time" 
-path = "../AscendingTime"
+#path = "../AscendingTime"
 version = "0.2.1"
 
 [dependencies.naga]

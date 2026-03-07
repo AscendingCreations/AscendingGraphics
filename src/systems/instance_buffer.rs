@@ -1,6 +1,5 @@
 use crate::{
-    Bounds, Buffer, BufferLayout, CameraView, GpuDevice, GpuRenderer,
-    OrderedIndex, parallel::*,
+    Buffer, BufferLayout, GpuDevice, GpuRenderer, OrderedIndex, parallel::*,
 };
 use std::ops::Range;
 
@@ -14,9 +13,6 @@ pub struct InstanceDetails {
     /// End location of the Buffer.
     pub end: u32,
 }
-
-/// Clipped buffers Tuple type.
-pub type ClippedInstanceDetails = (InstanceDetails, Option<Bounds>, CameraView);
 
 /// Instance buffer holds all the Details to render with instances with a Static VBO.
 /// This stores and handles the orders of all rendered objects to try and reduce the amount
