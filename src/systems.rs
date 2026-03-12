@@ -1,4 +1,3 @@
-mod arena;
 mod bounds;
 mod buffer;
 mod device;
@@ -14,7 +13,6 @@ mod system;
 pub mod vbo;
 mod vbo_store;
 
-pub use arena::*;
 pub use bounds::Bounds;
 pub use buffer::{
     AsBufferPass, BufferData, BufferLayout, BufferPass, GpuBuffer,
