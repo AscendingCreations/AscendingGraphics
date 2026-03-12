@@ -1,23 +1,28 @@
+mod arena;
 mod bounds;
 mod buffer;
 mod device;
 mod draw_order;
-mod instance_buffer;
+mod ibo_store;
+pub mod instance_buffer;
 mod layout;
 mod pass;
 mod pipelines;
 mod renderer;
 mod static_vbo;
 mod system;
-mod vbo;
+pub mod vbo;
+mod vbo_store;
 
+pub use arena::*;
 pub use bounds::Bounds;
 pub use buffer::{
-    AsBufferPass, Buffer, BufferData, BufferLayout, BufferPass, BufferStore,
+    AsBufferPass, BufferData, BufferLayout, BufferPass, GpuBuffer,
 };
 pub use device::*;
-pub use draw_order::{DrawOrder, Index, OrderedIndex};
-pub use instance_buffer::*;
+pub use draw_order::{DrawOrder, Index};
+pub use ibo_store::IBOStore;
+pub use instance_buffer::{InstanceBuffer, InstanceDetails};
 pub use layout::*;
 pub use pass::*;
 pub use pipelines::*;
@@ -25,7 +30,8 @@ pub use renderer::*;
 pub use slotmap::KeyData;
 pub use static_vbo::*;
 pub use system::*;
-pub use vbo::*;
+pub use vbo::{IndexDetails, VertexBuffer};
+pub use vbo_store::*;
 
 pub(crate) use ahash::{AHashMap, AHashSet, AHasher};
 

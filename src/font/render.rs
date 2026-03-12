@@ -1,7 +1,7 @@
 use crate::{
     Allocation, AsBufferPass, AtlasSet, GpuRenderer, GraphicsError,
-    InstanceBuffer, OrderedIndex, SetBuffers, StaticVertexBuffer, Text,
-    TextRenderPipeline, TextVertex, Vec2,
+    InstanceBuffer, SetBuffers, StaticVertexBuffer, Text, TextRenderPipeline,
+    TextVertex, Vec2, instance_buffer::OrderedIndex,
 };
 use cosmic_text::{CacheKey, SwashCache, SwashImage};
 #[cfg(feature = "logging")]

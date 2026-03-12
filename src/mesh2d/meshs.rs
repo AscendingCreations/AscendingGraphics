@@ -1,6 +1,6 @@
 use crate::{
     CameraView, DrawOrder, GpuRenderer, GraphicsError, Index, Mesh2DVertex,
-    OrderedIndex, OtherError, Vec2, Vec3, Vec4, VertexBuilder,
+    OtherError, Vec2, Vec3, Vec4, VertexBuilder, vbo::OrderedIndex,
 };
 use cosmic_text::Color;
 use lyon::{
@@ -63,7 +63,7 @@ impl Mesh2D {
         Self {
             pos,
             size: Vec2::default(),
-            vbo_store_id: renderer.default_buffer(),
+            vbo_store_id: renderer.default_vbo_store(),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
             changed: true,
             vertices: Vec::new(),
@@ -85,7 +85,7 @@ impl Mesh2D {
         Self {
             pos,
             size: Vec2::default(),
-            vbo_store_id: renderer.default_buffer(),
+            vbo_store_id: renderer.default_vbo_store(),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
             changed: true,
             vertices: Vec::with_capacity(capacity),
@@ -97,7 +97,7 @@ impl Mesh2D {
     /// Unloads the [`Mesh2D`] from the Instance Buffers Store.
     ///
     pub fn unload(self, renderer: &mut GpuRenderer) {
-        renderer.remove_buffer(self.vbo_store_id);
+        renderer.remove_vbo_store(self.vbo_store_id);
     }
 
     /// Updates the [`Mesh2D`]'s order to overide the last set position.
@@ -229,7 +229,7 @@ impl Mesh2D {
     /// Updates the [`Mesh2D`]'s Buffers to prepare them for rendering.
     ///
     pub fn create_quad(&mut self, renderer: &mut GpuRenderer) {
-        if let Some(store) = renderer.get_buffer_mut(self.vbo_store_id) {
+        if let Some(store) = renderer.get_vbo_store_mut(self.vbo_store_id) {
             let mut verticies = Vec::with_capacity(self.vertices.len());
 
             for vertex in &self.vertices {

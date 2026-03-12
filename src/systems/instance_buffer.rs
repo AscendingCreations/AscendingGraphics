@@ -1,7 +1,8 @@
 use crate::{
-    Buffer, BufferLayout, GpuDevice, GpuRenderer, OrderedIndex, parallel::*,
+    BufferLayout, DrawOrder, GpuBuffer, GpuDevice, GpuRenderer, Index,
+    parallel::*,
 };
-use std::ops::Range;
+use std::{cmp::Ordering, ops::Range};
 
 /// Details for the Objects Memory location within the instance Buffer.
 /// This is used to deturmine if the buffers location has changed or not for
@@ -14,6 +15,43 @@ pub struct InstanceDetails {
     pub end: u32,
 }
 
+/// OrderIndex Contains the information needed to Order the buffers and
+/// to set the buffers up for rendering.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct OrderedIndex {
+    /// The Draw Order of the Buffer.
+    pub(crate) order: DrawOrder,
+    /// The Index to the Buffer.
+    pub(crate) index: Index,
+}
+
+impl PartialOrd for OrderedIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for OrderedIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.order == other.order
+    }
+}
+
+impl Eq for OrderedIndex {}
+
+impl Ord for OrderedIndex {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.order.cmp(&other.order)
+    }
+}
+
+impl OrderedIndex {
+    /// Creates a OrderedIndex with DrawOrder, Buffer Index and Index Max.
+    pub fn new(order: DrawOrder, index: Index) -> Self {
+        Self { order, index }
+    }
+}
+
 /// Instance buffer holds all the Details to render with instances with a Static VBO.
 /// This stores and handles the orders of all rendered objects to try and reduce the amount
 /// of GPU uploads we make.
@@ -24,7 +62,7 @@ pub struct InstanceBuffer<K: BufferLayout> {
     /// Buffers ready to Render
     pub buffers: Vec<Option<InstanceDetails>>,
     /// The main Buffer within GPU memory.
-    pub buffer: Buffer<K>,
+    pub buffer: GpuBuffer<K>,
     /// Used to Resize the buffer if new data will not fit within.
     needed_size: usize,
 }
@@ -40,7 +78,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
         InstanceBuffer {
             unprocessed: Vec::new(),
             buffers: Vec::new(),
-            buffer: Buffer::new(
+            buffer: GpuBuffer::new(
                 gpu_device,
                 data,
                 wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -68,7 +106,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
         InstanceBuffer {
             unprocessed,
             buffers: Vec::with_capacity(size),
-            buffer: Buffer::new(
+            buffer: GpuBuffer::new(
                 gpu_device,
                 data,
                 wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -91,7 +129,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
         index: OrderedIndex,
         buffer_layer: usize,
     ) {
-        if let Some(store) = renderer.get_buffer(index.index) {
+        if let Some(store) = renderer.get_ibo_store(index.index) {
             self.needed_size += store.store.len();
             self.unprocessed.push((buffer_layer, index));
         }
@@ -108,7 +146,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
         let mut write_buffer = false;
         let old_pos = *pos as u64;
 
-        if let Some(store) = renderer.get_buffer_mut(buf.index) {
+        if let Some(store) = renderer.get_ibo_store_mut(buf.index) {
             let range = *pos..*pos + store.store.len();
 
             if store.store_pos != range || changed || store.changed {
@@ -121,7 +159,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
             *count += (store.store.len() / K::stride()) as u32;
         }
 
-        if write_buffer && let Some(store) = renderer.get_buffer(buf.index) {
+        if write_buffer && let Some(store) = renderer.get_ibo_store(buf.index) {
             self.buffer.write(renderer.queue(), &store.store, old_pos);
         }
     }
@@ -188,7 +226,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
     fn resize(&mut self, gpu_device: &GpuDevice, capacity: usize) {
         let data = K::with_capacity(capacity, 0);
 
-        self.buffer = Buffer::new(
+        self.buffer = GpuBuffer::new(
             gpu_device,
             &data.vertexs,
             wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,

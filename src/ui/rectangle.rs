@@ -1,6 +1,7 @@
 use crate::{
     AtlasSet, Bounds, CameraView, DrawOrder, GpuRenderer, GraphicsError, Index,
-    OrderedIndex, OtherError, RectVertex, Texture, Vec2, Vec3, Vec4,
+    OtherError, RectVertex, Texture, Vec2, Vec3, Vec4,
+    instance_buffer::OrderedIndex,
 };
 use cosmic_text::Color;
 
@@ -60,7 +61,7 @@ impl Rect {
             border_color: Color::rgba(0, 0, 0, 0),
             radius: 0.0,
             camera_view: CameraView::default(),
-            store_id: renderer.new_buffer(rect_size, 0),
+            store_id: renderer.new_ibo_store(rect_size),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
             bounds: None,
             changed: true,
@@ -90,7 +91,7 @@ impl Rect {
             border_color: Color::rgba(0, 0, 0, 0),
             radius: 0.0,
             camera_view: CameraView::default(),
-            store_id: renderer.new_buffer(rect_size, 0),
+            store_id: renderer.new_ibo_store(rect_size),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
             bounds: None,
             changed: true,
@@ -100,7 +101,7 @@ impl Rect {
     /// Unloads the [`Rect`] from the Instance Buffers Store.
     ///
     pub fn unload(self, renderer: &mut GpuRenderer) {
-        renderer.remove_buffer(self.store_id);
+        renderer.remove_ibo_store(self.store_id);
     }
 
     /// Updates the [`Rect`]'s order to overide the last set position.
@@ -264,7 +265,7 @@ impl Rect {
             camera_view: self.camera_view as u32,
         };
 
-        if let Some(store) = renderer.get_buffer_mut(self.store_id) {
+        if let Some(store) = renderer.get_ibo_store_mut(self.store_id) {
             let bytes = bytemuck::bytes_of(&instance);
 
             if bytes.len() != store.store.len() {
@@ -290,7 +291,7 @@ impl Rect {
             self.changed = false;
         }
 
-        OrderedIndex::new(self.order, self.store_id, 0)
+        OrderedIndex::new(self.order, self.store_id)
     }
 
     /// Checks if the Mouse position is within the Rects location.

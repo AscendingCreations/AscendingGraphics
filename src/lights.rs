@@ -9,8 +9,8 @@ pub use uniforms::*;
 pub use vertex::*;
 
 use crate::{
-    CameraView, Color, DrawOrder, GpuRenderer, Index, OrderedIndex, Vec2, Vec3,
-    Vec4, parallel::*,
+    CameraView, Color, DrawOrder, GpuRenderer, Index, Vec2, Vec3, Vec4,
+    instance_buffer::OrderedIndex, parallel::*,
 };
 
 use slotmap::SlotMap;
@@ -131,9 +131,8 @@ impl Lights {
             size,
             world_color: Vec4::new(1.0, 1.0, 1.0, 0.0),
             enable_lights: false,
-            store_id: renderer.new_buffer(
+            store_id: renderer.new_ibo_store(
                 bytemuck::bytes_of(&LightsVertex::default()).len(),
-                0,
             ),
             order: DrawOrder::new(true, pos, order_layer),
             area_lights: SlotMap::with_capacity_and_key(MAX_AREA_LIGHTS),
@@ -147,7 +146,7 @@ impl Lights {
     }
 
     pub fn unload(self, renderer: &mut GpuRenderer) {
-        renderer.remove_buffer(self.store_id);
+        renderer.remove_ibo_store(self.store_id);
     }
 
     pub fn set_world_color(&mut self, color: Vec4) -> &mut Self {
@@ -199,7 +198,7 @@ impl Lights {
             size: self.size.to_array(),
         };
 
-        if let Some(store) = renderer.get_buffer_mut(self.store_id) {
+        if let Some(store) = renderer.get_ibo_store_mut(self.store_id) {
             let bytes = bytemuck::bytes_of(&instance);
 
             if bytes.len() != store.store.len() {
@@ -360,6 +359,6 @@ impl Lights {
             self.directionals_changed = false;
         }
 
-        OrderedIndex::new(self.order, self.store_id, 0)
+        OrderedIndex::new(self.order, self.store_id)
     }
 }

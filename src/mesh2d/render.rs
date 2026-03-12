@@ -1,6 +1,6 @@
 use crate::{
     AsBufferPass, GpuRenderer, GraphicsError, Mesh2D, Mesh2DRenderPipeline,
-    Mesh2DVertex, OrderedIndex, SetBuffers, VertexBuffer,
+    Mesh2DVertex, SetBuffers, VertexBuffer, vbo::OrderedIndex,
 };
 
 #[derive(Debug)]

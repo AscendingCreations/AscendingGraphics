@@ -4,8 +4,8 @@ mod uniforms;
 mod vertex;
 
 use crate::{
-    AtlasSet, CameraView, DrawOrder, GpuRenderer, Index, OrderedIndex, UVec2,
-    UVec3, Vec2, Vec3, parallel::*,
+    AtlasSet, CameraView, DrawOrder, GpuRenderer, Index, UVec2, UVec3, Vec2,
+    Vec3, instance_buffer::OrderedIndex, parallel::*,
 };
 use cosmic_text::Color;
 pub use pipeline::*;
@@ -240,7 +240,7 @@ impl Map {
                 self.generate_layer_vertexes(lower_buffer, atlas, layer)
             });
 
-            if let Some(store) = renderer.get_buffer_mut(self.stores[0]) {
+            if let Some(store) = renderer.get_ibo_store_mut(self.stores[0]) {
                 let bytes = bytemuck::cast_slice(lower_buffer);
 
                 if bytes.len() != store.store.len() {
@@ -259,7 +259,7 @@ impl Map {
                 self.generate_layer_vertexes(upper_buffer, atlas, layer)
             });
 
-            if let Some(store) = renderer.get_buffer_mut(self.stores[1]) {
+            if let Some(store) = renderer.get_ibo_store_mut(self.stores[1]) {
                 let bytes = bytemuck::cast_slice(upper_buffer);
 
                 if bytes.len() != store.store.len() {
@@ -279,7 +279,8 @@ impl Map {
     ) {
         if !self.can_render && visible {
             for i in 0..=1 {
-                if let Some(store) = renderer.get_buffer_mut(self.stores[i]) {
+                if let Some(store) = renderer.get_ibo_store_mut(self.stores[i])
+                {
                     store.changed = true;
                 }
             }
@@ -299,8 +300,8 @@ impl Map {
     ) -> Option<Self> {
         let map_index = map_render.unused_indexs.pop_front()?;
         let map_vertex_size = bytemuck::bytes_of(&TileVertex::default()).len();
-        let lower_index = renderer.new_buffer(map_vertex_size * LOWER_COUNT, 0);
-        let upper_index = renderer.new_buffer(map_vertex_size * UPPER_COUNT, 0);
+        let lower_index = renderer.new_ibo_store(map_vertex_size * LOWER_COUNT);
+        let upper_index = renderer.new_ibo_store(map_vertex_size * UPPER_COUNT);
         let order1 =
             DrawOrder::new(false, Vec3::new(pos.x, pos.y, zlayers.anim4), 0);
         let order2 =
@@ -336,9 +337,9 @@ impl Map {
         let map_index = map_render.unused_indexs.pop_front()?;
         let map_vertex_size = bytemuck::bytes_of(&TileVertex::default()).len();
         let lower_index = renderer
-            .new_buffer(map_vertex_size * ((size.x * size.y) * 7) as usize, 0);
+            .new_ibo_store(map_vertex_size * ((size.x * size.y) * 7) as usize);
         let upper_index = renderer
-            .new_buffer(map_vertex_size * ((size.x * size.y) * 2) as usize, 0);
+            .new_ibo_store(map_vertex_size * ((size.x * size.y) * 2) as usize);
         let order1 =
             DrawOrder::new(false, Vec3::new(pos.x, pos.y, zlayers.anim4), 0);
         let order2 =
@@ -455,7 +456,7 @@ impl Map {
         map_render: &mut MapRenderer,
     ) {
         for index in &self.stores {
-            renderer.remove_buffer(*index);
+            renderer.remove_ibo_store(*index);
         }
 
         map_render.unused_indexs.push_front(self.map_index);
@@ -610,8 +611,8 @@ impl Map {
             }
 
             Some((
-                OrderedIndex::new(self.orders[0], self.stores[0], 0),
-                OrderedIndex::new(self.orders[1], self.stores[1], 0),
+                OrderedIndex::new(self.orders[0], self.stores[0]),
+                OrderedIndex::new(self.orders[1], self.stores[1]),
             ))
         } else {
             None

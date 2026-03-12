@@ -8,7 +8,7 @@ pub use vertex::*;
 
 use crate::{
     AtlasSet, Bounds, CameraView, Color, DrawOrder, FlipStyle, GpuRenderer,
-    Index, OrderedIndex, Vec2, Vec3, Vec4,
+    Index, Vec2, Vec3, Vec4, instance_buffer::OrderedIndex,
 };
 
 /// Basic and Fast AnimImage Rendering Type. Best used for Sprites and Objects in the world.
@@ -70,9 +70,8 @@ impl AnimImage {
             camera_view: CameraView::default(),
             color: Color::rgba(255, 255, 255, 255),
             texture,
-            store_id: renderer.new_buffer(
+            store_id: renderer.new_ibo_store(
                 bytemuck::bytes_of(&AnimImageVertex::default()).len(),
-                0,
             ),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
             bounds: None,
@@ -85,7 +84,7 @@ impl AnimImage {
     /// Unloads the [`AnimImage`] from the Instance Buffers Store.
     ///
     pub fn unload(self, renderer: &mut GpuRenderer) {
-        renderer.remove_buffer(self.store_id);
+        renderer.remove_ibo_store(self.store_id);
     }
 
     /// Updates the [`AnimImage`]'s order_override.
@@ -248,7 +247,7 @@ impl AnimImage {
             angle: self.rotation_angle,
         };
 
-        if let Some(store) = renderer.get_buffer_mut(self.store_id) {
+        if let Some(store) = renderer.get_ibo_store_mut(self.store_id) {
             let bytes = bytemuck::bytes_of(&instance);
 
             if bytes.len() != store.store.len() {
@@ -273,6 +272,6 @@ impl AnimImage {
             self.changed = false;
         }
 
-        OrderedIndex::new(self.order, self.store_id, 0)
+        OrderedIndex::new(self.order, self.store_id)
     }
 }

@@ -2,7 +2,8 @@ use std::cell::RefCell;
 
 use crate::{
     Bounds, CameraView, Color, DrawOrder, GpuRenderer, GraphicsError, Index,
-    OrderedIndex, TextAtlas, TextVertex, Vec2, Vec3, parallel::*,
+    TextAtlas, TextVertex, Vec2, Vec3, instance_buffer::OrderedIndex,
+    parallel::*,
 };
 use cosmic_text::{
     Align, Attrs, Buffer, Cursor, FontSystem, Metrics, SwashCache,
@@ -239,7 +240,7 @@ impl Text {
                 });
             });
 
-        if let Some(store) = renderer.get_buffer_mut(self.store_id) {
+        if let Some(store) = renderer.get_ibo_store_mut(self.store_id) {
             GLYPH_VERTICES.with_borrow(|vertices| {
                 let bytes: &[u8] = bytemuck::cast_slice(vertices);
 
@@ -279,7 +280,7 @@ impl Text {
             pos,
             size,
             bounds: None,
-            store_id: renderer.new_buffer(text_starter_size, 0),
+            store_id: renderer.new_ibo_store(text_starter_size),
             order: DrawOrder::new(false, pos, order_layer),
             changed: true,
             default_color: Color::rgba(0, 0, 0, 255),
@@ -303,7 +304,7 @@ impl Text {
     /// Unloads the [`Text`] from the Instance Buffers Store and its outline from the VBO Store.
     ///
     pub fn unload(self, renderer: &mut GpuRenderer) {
-        renderer.remove_buffer(self.store_id);
+        renderer.remove_ibo_store(self.store_id);
     }
 
     /// Updates the [`Text`]'s order to overide the last set position.
@@ -536,7 +537,7 @@ impl Text {
             self.changed = false;
         }
 
-        Ok(OrderedIndex::new(self.order, self.store_id, 0))
+        Ok(OrderedIndex::new(self.order, self.store_id))
     }
 
     /// Checks if mouse_pos is within the [`Text`]'s location.
