@@ -1,7 +1,7 @@
 use crate::{
     AsBufferPass, AtlasSet, GpuRenderer, GraphicsError, InstanceBuffer,
-    MAX_MAPS, Map, MapLayout, MapRaw, MapRenderPipeline, OrderedIndex,
-    SetBuffers, StaticVertexBuffer, TileVertex,
+    MAX_MAPS, Map, MapLayout, MapRaw, MapRenderPipeline, SetBuffers,
+    StaticVertexBuffer, TileVertex, instance_buffer::OrderedIndex,
 };
 use std::{collections::VecDeque, iter, mem};
 use wgpu::util::{DeviceExt, align_to};

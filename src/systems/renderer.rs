@@ -1,7 +1,7 @@
 use crate::{
-    BufferPass, BufferStore, GpuDevice, GpuWindow, GraphicsError, Index,
-    Layout, LayoutStorage, OtherError, PipeLineLayout, PipelineStorage,
-    StaticVertexBuffer,
+    BufferPass, GpuDevice, GpuWindow, GraphicsError, IBOStore, Index, Layout,
+    LayoutStorage, OtherError, PipeLineLayout, PipelineStorage,
+    StaticVertexBuffer, VBOStore,
 };
 use cosmic_text::FontSystem;
 use slotmap::SlotMap;
@@ -16,7 +16,8 @@ use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 pub struct GpuRenderer {
     pub(crate) window: GpuWindow,
     pub(crate) device: GpuDevice,
-    pub(crate) buffer_stores: SlotMap<Index, BufferStore>,
+    pub(crate) ibo_stores: SlotMap<Index, IBOStore>,
+    pub(crate) vbo_stores: SlotMap<Index, VBOStore>,
     pub(crate) layout_storage: LayoutStorage,
     pub(crate) pipeline_storage: PipelineStorage,
     pub(crate) depthbuffer: wgpu::TextureView,
@@ -88,7 +89,9 @@ impl GpuRenderer {
         Self {
             window,
             device,
-            buffer_stores: SlotMap::with_capacity_and_key(1024),
+            ibo_stores: SlotMap::with_capacity_and_key(1024),
+            //we use a lower amount here since meshes tend to be grouped more and might not always be used.
+            vbo_stores: SlotMap::with_capacity_and_key(8),
             layout_storage: LayoutStorage::new(),
             pipeline_storage: PipelineStorage::new(),
             depthbuffer: depth_buffer,
@@ -233,41 +236,73 @@ impl GpuRenderer {
         &mut self.font_sys
     }
 
-    /// Creates a New [`BufferStore`] with set sizes for Rendering Object Data Storage and
+    /// Creates a New [`IBOStore`] with set sizes for Rendering Object Data Storage and
     /// Returns its [`Index`] for Referencing it.
     ///
-    pub fn new_buffer(
+    pub fn new_ibo_store(&mut self, store_size: usize) -> Index {
+        self.ibo_stores.insert(IBOStore::new(store_size))
+    }
+
+    /// Creates a New [`VBOStore`] with set sizes for Rendering Object Data Storage and
+    /// Returns its [`Index`] for Referencing it.
+    ///
+    pub fn new_vbo_store(
         &mut self,
         store_size: usize,
         index_size: usize,
     ) -> Index {
-        self.buffer_stores
-            .insert(BufferStore::new(store_size, index_size))
+        self.vbo_stores
+            .insert(VBOStore::new(store_size, index_size))
     }
 
-    /// Creates a New [`BufferStore`] with default sizes for Rendering Object Data Storage and
+    /// Creates a New [`IBOStore`] with default sizes for Rendering Object Data Storage and
     /// Returns its [`Index`] for Referencing it.
     ///
-    pub fn default_buffer(&mut self) -> Index {
-        self.buffer_stores.insert(BufferStore::default())
+    pub fn default_ibo_store(&mut self) -> Index {
+        self.ibo_stores.insert(IBOStore::default())
     }
 
-    /// Removes a [`BufferStore`] using its [`Index`].
+    /// Creates a New [`VBOStore`] with default sizes for Rendering Object Data Storage and
+    /// Returns its [`Index`] for Referencing it.
     ///
-    pub fn remove_buffer(&mut self, index: Index) {
-        let _ = self.buffer_stores.remove(index);
+    pub fn default_vbo_store(&mut self) -> Index {
+        self.vbo_stores.insert(VBOStore::default())
     }
 
-    /// Gets a optional reference to [`BufferStore`] using its [`Index`].
+    /// Removes a [`IBOStore`] using its [`Index`].
     ///
-    pub fn get_buffer(&self, index: Index) -> Option<&BufferStore> {
-        self.buffer_stores.get(index)
+    pub fn remove_ibo_store(&mut self, index: Index) {
+        let _ = self.ibo_stores.remove(index);
     }
 
-    /// Gets a optional mutable reference to [`BufferStore`] using its [`Index`].
+    /// Removes a [`VBOStore`] using its [`Index`].
     ///
-    pub fn get_buffer_mut(&mut self, index: Index) -> Option<&mut BufferStore> {
-        self.buffer_stores.get_mut(index)
+    pub fn remove_vbo_store(&mut self, index: Index) {
+        let _ = self.vbo_stores.remove(index);
+    }
+
+    /// Gets a optional reference to [`IBOStore`] using its [`Index`].
+    ///
+    pub fn get_ibo_store(&self, index: Index) -> Option<&IBOStore> {
+        self.ibo_stores.get(index)
+    }
+
+    /// Gets a optional reference to [`VBOStore`] using its [`Index`].
+    ///
+    pub fn get_vbo_store(&self, index: Index) -> Option<&VBOStore> {
+        self.vbo_stores.get(index)
+    }
+
+    /// Gets a optional mutable reference to [`IBOStore`] using its [`Index`].
+    ///
+    pub fn get_ibo_store_mut(&mut self, index: Index) -> Option<&mut IBOStore> {
+        self.ibo_stores.get_mut(index)
+    }
+
+    /// Gets a optional mutable reference to [`VBOStore`] using its [`Index`].
+    ///
+    pub fn get_vbo_store_mut(&mut self, index: Index) -> Option<&mut VBOStore> {
+        self.vbo_stores.get_mut(index)
     }
 
     /// Creates new BindGroupLayout from Generic K and Returns a Reference Counter to them.

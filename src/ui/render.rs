@@ -1,6 +1,7 @@
 use crate::{
-    AtlasSet, GpuRenderer, GraphicsError, InstanceBuffer, OrderedIndex, Rect,
+    AtlasSet, GpuRenderer, GraphicsError, InstanceBuffer, Rect,
     RectRenderPipeline, RectVertex, StaticVertexBuffer,
+    instance_buffer::OrderedIndex,
 };
 
 /// Instance Buffer Setup for [`Rect`]'s.

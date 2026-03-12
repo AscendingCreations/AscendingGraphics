@@ -1,8 +1,8 @@
 use crate::{
-    AsBufferPass, Buffer, BufferData, BufferLayout, BufferPass, GpuDevice,
-    GpuRenderer, OrderedIndex, parallel::*,
+    AsBufferPass, BufferData, BufferLayout, BufferPass, DrawOrder, GpuBuffer,
+    GpuDevice, GpuRenderer, Index, parallel::*,
 };
-use std::ops::Range;
+use std::{cmp::Ordering, ops::Range};
 
 /// Details for the Objects Memory location within the Vertex Buffer and Index Buffers.
 /// This is used to deturmine if the buffers location has changed or not for
@@ -17,6 +17,52 @@ pub struct IndexDetails {
     pub vertex_base: i32,
 }
 
+/// OrderIndex Contains the information needed to Order the buffers and
+/// to set the buffers up for rendering.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct OrderedIndex {
+    /// The Draw Order of the Buffer.
+    pub(crate) order: DrawOrder,
+    /// The Index to the Buffer.
+    pub(crate) index: Index,
+    /// Stores the VBO buffers indices count.
+    pub(crate) index_count: u32,
+    /// Stores the VBO buffers indices max count.
+    pub(crate) index_max: u32,
+}
+
+impl PartialOrd for OrderedIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for OrderedIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.order == other.order
+    }
+}
+
+impl Eq for OrderedIndex {}
+
+impl Ord for OrderedIndex {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.order.cmp(&other.order)
+    }
+}
+
+impl OrderedIndex {
+    /// Creates a OrderedIndex with DrawOrder, Buffer Index and Index Max.
+    pub fn new(order: DrawOrder, index: Index, index_max: u32) -> Self {
+        Self {
+            order,
+            index,
+            index_count: 0,
+            index_max,
+        }
+    }
+}
+
 /// VertexBuffer holds all the Details to render with Verticies and indicies.
 /// This stores and handles the orders of all rendered objects to try and reduce the amount
 /// of GPU uploads we make.
@@ -27,9 +73,9 @@ pub struct VertexBuffer<K: BufferLayout> {
     /// Buffers ready to Render
     pub buffers: Vec<(usize, IndexDetails)>,
     /// The main Vertex Buffer within GPU memory.
-    pub vertex_buffer: Buffer<K>,
+    pub vertex_buffer: GpuBuffer<K>,
     /// The main Index Buffer within GPU memory.
-    pub index_buffer: Buffer<K>,
+    pub index_buffer: GpuBuffer<K>,
     /// Used to Resize the vertex buffer if new data will not fit within.
     vertex_needed: usize,
     /// Used to Resize the index buffer if new data will not fit within.
@@ -56,14 +102,14 @@ impl<K: BufferLayout> VertexBuffer<K> {
         VertexBuffer {
             unprocessed: Vec::new(),
             buffers: Vec::new(),
-            vertex_buffer: Buffer::new(
+            vertex_buffer: GpuBuffer::new(
                 gpu_device,
                 &buffers.vertexs,
                 wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 Some("Vertex Buffer"),
             ),
             vertex_needed: 0,
-            index_buffer: Buffer::new(
+            index_buffer: GpuBuffer::new(
                 gpu_device,
                 &buffers.indexs,
                 wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
@@ -90,14 +136,14 @@ impl<K: BufferLayout> VertexBuffer<K> {
         VertexBuffer {
             unprocessed: Vec::with_capacity(size),
             buffers: Vec::with_capacity(size),
-            vertex_buffer: Buffer::new(
+            vertex_buffer: GpuBuffer::new(
                 gpu_device,
                 &buffers.vertexs,
                 wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 Some("Vertex Buffer"),
             ),
             vertex_needed: 0,
-            index_buffer: Buffer::new(
+            index_buffer: GpuBuffer::new(
                 gpu_device,
                 &buffers.indexs,
                 wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
@@ -120,7 +166,7 @@ impl<K: BufferLayout> VertexBuffer<K> {
         mut index: OrderedIndex,
         buffer_layer: usize,
     ) {
-        if let Some(store) = renderer.get_buffer(index.index) {
+        if let Some(store) = renderer.get_vbo_store(index.index) {
             self.vertex_needed += store.store.len();
             self.index_needed += store.indexs.len();
 
@@ -163,7 +209,7 @@ impl<K: BufferLayout> VertexBuffer<K> {
             let old_vertex_pos = vertex_pos as u64;
             let old_index_pos = index_pos as u64;
 
-            if let Some(store) = renderer.get_buffer_mut(buf.index) {
+            if let Some(store) = renderer.get_vbo_store_mut(buf.index) {
                 if store.indexs.is_empty() {
                     continue;
                 }
@@ -189,7 +235,8 @@ impl<K: BufferLayout> VertexBuffer<K> {
                 index_pos += store.indexs.len();
             }
 
-            if write_vertex && let Some(store) = renderer.get_buffer(buf.index)
+            if write_vertex
+                && let Some(store) = renderer.get_ibo_store(buf.index)
             {
                 self.vertex_buffer.write(
                     renderer.queue(),
@@ -198,7 +245,9 @@ impl<K: BufferLayout> VertexBuffer<K> {
                 );
             }
 
-            if write_index && let Some(store) = renderer.get_buffer(buf.index) {
+            if write_index
+                && let Some(store) = renderer.get_vbo_store(buf.index)
+            {
                 self.index_buffer.write(
                     renderer.queue(),
                     &store.indexs,
@@ -237,14 +286,14 @@ impl<K: BufferLayout> VertexBuffer<K> {
     ) {
         let buffers = K::with_capacity(vertex_capacity, index_capacity);
 
-        self.vertex_buffer = Buffer::new(
+        self.vertex_buffer = GpuBuffer::new(
             gpu_device,
             &buffers.vertexs,
             wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             Some("Vertex Buffer"),
         );
 
-        self.index_buffer = Buffer::new(
+        self.index_buffer = GpuBuffer::new(
             gpu_device,
             &buffers.indexs,
             wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,

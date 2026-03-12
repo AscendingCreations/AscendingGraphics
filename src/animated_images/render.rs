@@ -1,6 +1,7 @@
 use crate::{
     AnimImage, AnimImageRenderPipeline, AtlasSet, GpuRenderer, GraphicsError,
-    ImageVertex, InstanceBuffer, OrderedIndex, StaticVertexBuffer,
+    ImageVertex, InstanceBuffer, StaticVertexBuffer,
+    instance_buffer::OrderedIndex,
 };
 
 /// Instance Buffer Setup for [`AnimImage`].

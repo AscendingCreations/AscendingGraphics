@@ -1,6 +1,7 @@
 use crate::{
     AtlasSet, GpuRenderer, GraphicsError, Image, ImageRenderPipeline,
-    ImageVertex, InstanceBuffer, OrderedIndex, StaticVertexBuffer,
+    ImageVertex, InstanceBuffer, StaticVertexBuffer,
+    instance_buffer::OrderedIndex,
 };
 
 /// Instance Buffer Setup for [`Image`].

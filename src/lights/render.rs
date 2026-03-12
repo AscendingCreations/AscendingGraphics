@@ -1,8 +1,8 @@
 use crate::{
     AreaLightLayout, AreaLightRaw, DirLightLayout, DirectionalLightRaw,
     GpuRenderer, GraphicsError, InstanceBuffer, LightRenderPipeline, Lights,
-    LightsVertex, MAX_AREA_LIGHTS, MAX_DIR_LIGHTS, OrderedIndex,
-    StaticVertexBuffer,
+    LightsVertex, MAX_AREA_LIGHTS, MAX_DIR_LIGHTS, StaticVertexBuffer,
+    instance_buffer::OrderedIndex,
 };
 use std::{iter, mem};
 use wgpu::util::{DeviceExt, align_to};
