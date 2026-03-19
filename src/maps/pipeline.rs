@@ -38,9 +38,9 @@ impl PipeLineLayout for MapRenderPipeline {
                     &wgpu::PipelineLayoutDescriptor {
                         label: Some("Map_render_pipeline_layout"),
                         bind_group_layouts: &[
-                            &system_layout,
-                            &texture_layout,
-                            &map_layout,
+                            Some(&system_layout),
+                            Some(&texture_layout),
+                            Some(&map_layout),
                         ],
                         immediate_size: 0,
                     },
@@ -75,8 +75,8 @@ impl PipeLineLayout for MapRenderPipeline {
                 },
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
                 }),

@@ -111,11 +111,8 @@ impl GpuRenderer {
 
     /// Resizes the Window.
     ///
-    pub fn resize(
-        &mut self,
-        size: PhysicalSize<u32>,
-    ) -> Result<(), GraphicsError> {
-        self.window.resize(&self.device, size)
+    pub fn resize(&mut self, size: PhysicalSize<u32>) {
+        self.window.resize(&self.device, size);
     }
 
     /// Returns a reference to the Optional [`wgpu::TextureView`]: frame buffer.
@@ -160,9 +157,10 @@ impl GpuRenderer {
     ///
     pub fn update(
         &mut self,
+        instance: &wgpu::Instance,
         event: &WindowEvent,
     ) -> Result<bool, GraphicsError> {
-        let frame = match self.window.update(&self.device, event)? {
+        let frame = match self.window.update(instance, &self.device, event)? {
             Some(frame) => frame,
             _ => return Ok(false),
         };
@@ -197,6 +195,7 @@ impl GpuRenderer {
 
         match self.frame.take() {
             Some(frame) => {
+                self.window.pre_present_notify();
                 frame.present();
                 Ok(())
             }

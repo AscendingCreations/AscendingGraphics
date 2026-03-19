@@ -26,8 +26,6 @@ pub enum GraphicsError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
-    Surface(#[from] wgpu::SurfaceError),
-    #[error(transparent)]
     WGpu(#[from] wgpu::Error),
     #[error(transparent)]
     Device(#[from] wgpu::RequestDeviceError),

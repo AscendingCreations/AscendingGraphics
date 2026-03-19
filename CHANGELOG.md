@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
+### Added
+- pre_present_notify() to GpuWindow.
+
+### Changes
+- (Breaking) update to WGPU 29.0.0
+- (Breaking) wgpu::Instance now Required for Window Update so we can Rebuild the Surface when it is Lost
+- pre_present_notify() Moved into renderer present as it needs to be called just before for best optimization of the window.
+- Optimized Storage Vectors to use Vec<IBOStore> instead of Vec<Vec<IBOStore>>
+- (Breaking) Removed Scissor Support. Will plan to add this support later in a different way.
+- (Breaking) There is no longer a generic Store Type VBO and IBO have their own. IBOStore/VBOStore. this helps increase speed and reduce size.
+- (Breaking) GPUWindow resize no longer returns an error.
 
 ## 0.37.1 (5. March, 2026)
 

@@ -4,7 +4,10 @@ use ahash::AHashSet;
 use log::debug;
 
 use std::sync::Arc;
-use wgpu::{Adapter, Backends, DeviceType, Surface, TextureFormat};
+use wgpu::{
+    Adapter, Backends, CurrentSurfaceTexture, DeviceType, Surface,
+    TextureFormat,
+};
 use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
 /// Handles the [`wgpu::Device`] and [`wgpu::Queue`] returned from WGPU.
@@ -80,22 +83,15 @@ impl GpuWindow {
 
     /// Resizes the [`wgpu::Surface`].
     ///
-    pub fn resize(
-        &mut self,
-        gpu_device: &GpuDevice,
-        size: PhysicalSize<u32>,
-    ) -> Result<(), GraphicsError> {
-        if size.width == 0 || size.height == 0 {
-            return Ok(());
-        }
+    pub fn resize(&mut self, gpu_device: &GpuDevice, size: PhysicalSize<u32>) {
+        let width = size.width.max(1);
+        let height = size.height.max(1);
 
-        self.surface_config.height = size.height;
-        self.surface_config.width = size.width;
+        self.surface_config.height = height;
+        self.surface_config.width = width;
         self.surface
             .configure(gpu_device.device(), &self.surface_config);
-        self.size = PhysicalSize::new(size.width as f32, size.height as f32);
-
-        Ok(())
+        self.size = PhysicalSize::new(width as f32, height as f32);
     }
 
     /// Returns the Size of the [`wgpu::Surface`].
@@ -116,64 +112,58 @@ impl GpuWindow {
         self.surface_format
     }
 
+    /// Notify the windowing system before presenting to the window.
+    ///
+    pub fn pre_present_notify(&self) {
+        self.window.pre_present_notify();
+    }
+
     /// Resizes the [`wgpu::Surface`] and/or requests a redraw event for the Window.
     ///
     pub fn update(
         &mut self,
+        instance: &wgpu::Instance,
         gpu_device: &GpuDevice,
         event: &WindowEvent,
     ) -> Result<Option<wgpu::SurfaceTexture>, GraphicsError> {
         match event {
             WindowEvent::Resized(physical_size) => {
-                self.resize(gpu_device, *physical_size)?;
+                self.resize(gpu_device, *physical_size);
                 self.inner_size = self.window.inner_size();
-
-                if self.size.width == 0.0
-                    || self.size.height == 0.0
-                    || self.inner_size.width == 0
-                    || self.inner_size.height == 0
-                {
-                    return Ok(None);
-                }
-
                 self.window.request_redraw();
             }
             WindowEvent::RedrawRequested => {
-                if self.size.width == 0.0
-                    || self.size.height == 0.0
-                    || self.inner_size.width == 0
-                    || self.inner_size.height == 0
-                {
-                    return Ok(None);
-                }
-
                 match self.surface.get_current_texture() {
-                    Ok(frame) => {
-                        self.window.pre_present_notify();
+                    CurrentSurfaceTexture::Success(frame) => {
                         return Ok(Some(frame));
                     }
-                    Err(wgpu::SurfaceError::Lost) => {
-                        let size = PhysicalSize::new(
-                            self.size.width as u32,
-                            self.size.height as u32,
-                        );
-                        self.resize(gpu_device, size)?;
-                        self.inner_size = self.window.inner_size();
-                        self.window.request_redraw();
+                    CurrentSurfaceTexture::Lost => {
+                        let surface = instance
+                            .create_surface(self.window.clone())
+                            .unwrap();
 
-                        if self.size.width == 0.0
-                            || self.size.height == 0.0
-                            || self.inner_size.width == 0
-                            || self.inner_size.height == 0
-                        {
-                            return Ok(None);
-                        }
-                    }
-                    Err(wgpu::SurfaceError::Outdated) => {
+                        self.surface = surface;
+                        self.surface.configure(
+                            gpu_device.device(),
+                            &self.surface_config,
+                        );
                         self.window.request_redraw();
-                        return Ok(None);
                     }
-                    Err(e) => return Err(GraphicsError::from(e)),
+                    CurrentSurfaceTexture::Suboptimal(_)
+                    | CurrentSurfaceTexture::Outdated => {
+                        self.surface.configure(
+                            gpu_device.device(),
+                            &self.surface_config,
+                        );
+                        self.window.request_redraw();
+                    }
+                    CurrentSurfaceTexture::Timeout
+                    | CurrentSurfaceTexture::Occluded => {
+                        self.window.request_redraw();
+                    }
+                    CurrentSurfaceTexture::Validation => unreachable!(
+                        "No error scope registered, so validation errors will panic"
+                    ),
                 }
             }
             WindowEvent::Moved(_)
