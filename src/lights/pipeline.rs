@@ -39,9 +39,9 @@ impl PipeLineLayout for LightRenderPipeline {
                     &wgpu::PipelineLayoutDescriptor {
                         label: Some("render_pipeline_layout"),
                         bind_group_layouts: &[
-                            &system_layout,
-                            &area_light_layout,
-                            &dir_light_layout,
+                            Some(&system_layout),
+                            Some(&area_light_layout),
+                            Some(&dir_light_layout),
                         ],
                         immediate_size: 0,
                     },
@@ -76,8 +76,8 @@ impl PipeLineLayout for LightRenderPipeline {
                 },
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
                 }),
