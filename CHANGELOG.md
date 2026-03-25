@@ -5,8 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
-## 0.38.1 (25. March, 2026)
+## 0.38.2 (25. March, 2026)
+### Fixed
+- Issue causing Layers being inserted Farther than there intended spot.
 
+## 0.38.1 (25. March, 2026)
 ### Fixed
 - Issue causing Layers to not be correctly inserted when empty spaces inbetween them within the Instance Buffer Store.
 

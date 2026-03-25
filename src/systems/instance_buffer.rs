@@ -192,14 +192,12 @@ impl<K: BufferLayout> InstanceBuffer<K> {
 
                 start_pos = count;
 
-                /*  if last_layer == 0 &&  {
-                    //need to push the first one if nothing exists yet.
-                    self.buffers.push(None);
-                }*/
-
                 //add in any empty layers for a faster lookup when rendering based on layer.
-                if last_layer + 1 != processing.0 || self.buffers.is_empty() {
-                    for _ in last_layer..processing.0 {
+                if processing.0 - self.buffers.len() > 0
+                    || self.buffers.is_empty()
+                {
+                    let count = processing.0 - self.buffers.len();
+                    for _ in 0..count {
                         self.buffers.push(None);
                     }
                 }
