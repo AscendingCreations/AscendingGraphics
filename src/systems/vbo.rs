@@ -236,7 +236,7 @@ impl<K: BufferLayout> VertexBuffer<K> {
             }
 
             if write_vertex
-                && let Some(store) = renderer.get_ibo_store(buf.index)
+                && let Some(store) = renderer.get_vbo_store(buf.index)
             {
                 self.vertex_buffer.write(
                     renderer.queue(),
