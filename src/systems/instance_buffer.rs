@@ -194,7 +194,7 @@ impl<K: BufferLayout> InstanceBuffer<K> {
 
                 //add in any empty layers for a faster lookup when rendering based on layer.
                 if last_layer + 1 != processing.0 {
-                    for _ in last_layer + 1..processing.0 {
+                    for _ in last_layer..processing.0 {
                         self.buffers.push(None);
                     }
                 }

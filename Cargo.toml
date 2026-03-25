@@ -1,6 +1,6 @@
 [package]
 name = "ascending_graphics"
-version = "0.38.0"
+version = "0.38.1"
 authors = ["S.J.R. van Schaik", "Andrew Wheeler <genusistimelord@gmail.com>"]
 license = "MIT OR Apache-2.0"
 edition = "2024"

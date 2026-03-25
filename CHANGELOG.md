@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+## 0.38.1 (25. March, 2026)
+
+### Fixed
+- Issue causing Layers to not be correctly inserted when empty spaces inbetween them within the Instance Buffer Store.
+
 ## 0.38.0 (19. March, 2026)
 ### Added
 - pre_present_notify() to GpuWindow.
