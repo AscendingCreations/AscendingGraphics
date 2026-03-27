@@ -126,6 +126,11 @@ impl GpuWindow {
         gpu_device: &GpuDevice,
         event: &WindowEvent,
     ) -> Result<Option<wgpu::SurfaceTexture>, GraphicsError> {
+        let configure = |surface: &Surface, window: &Window| {
+            surface.configure(gpu_device.device(), &self.surface_config);
+            window.request_redraw();
+        };
+
         match event {
             WindowEvent::Resized(physical_size) => {
                 self.resize(gpu_device, *physical_size);
@@ -143,26 +148,14 @@ impl GpuWindow {
                             .unwrap();
 
                         self.surface = surface;
-                        self.surface.configure(
-                            gpu_device.device(),
-                            &self.surface_config,
-                        );
-                        self.window.request_redraw();
+                        configure(&self.surface, &self.window);
                     }
                     CurrentSurfaceTexture::Suboptimal(surface) => {
                         drop(surface);
-                        self.surface.configure(
-                            gpu_device.device(),
-                            &self.surface_config,
-                        );
-                        self.window.request_redraw();
+                        configure(&self.surface, &self.window);
                     }
                     CurrentSurfaceTexture::Outdated => {
-                        self.surface.configure(
-                            gpu_device.device(),
-                            &self.surface_config,
-                        );
-                        self.window.request_redraw();
+                        configure(&self.surface, &self.window);
                     }
                     CurrentSurfaceTexture::Timeout
                     | CurrentSurfaceTexture::Occluded => {
