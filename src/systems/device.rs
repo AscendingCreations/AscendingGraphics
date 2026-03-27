@@ -149,8 +149,15 @@ impl GpuWindow {
                         );
                         self.window.request_redraw();
                     }
-                    CurrentSurfaceTexture::Suboptimal(_)
-                    | CurrentSurfaceTexture::Outdated => {
+                    CurrentSurfaceTexture::Suboptimal(surface) => {
+                        Drop(surface);
+                        self.surface.configure(
+                            gpu_device.device(),
+                            &self.surface_config,
+                        );
+                        self.window.request_redraw();
+                    }
+                    CurrentSurfaceTexture::Outdated => {
                         self.surface.configure(
                             gpu_device.device(),
                             &self.surface_config,
