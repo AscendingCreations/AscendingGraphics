@@ -150,7 +150,7 @@ impl GpuWindow {
                         self.window.request_redraw();
                     }
                     CurrentSurfaceTexture::Suboptimal(surface) => {
-                        Drop(surface);
+                        drop(surface);
                         self.surface.configure(
                             gpu_device.device(),
                             &self.surface_config,
