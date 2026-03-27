@@ -160,6 +160,9 @@ impl GpuRenderer {
         instance: &wgpu::Instance,
         event: &WindowEvent,
     ) -> Result<bool, GraphicsError> {
+        let _ = self.framebuffer.take();
+        let _ = self.frame.take();
+
         let frame = match self.window.update(instance, &self.device, event)? {
             Some(frame) => frame,
             _ => return Ok(false),
