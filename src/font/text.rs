@@ -6,7 +6,7 @@ use crate::{
     parallel::*,
 };
 use cosmic_text::{
-    Align, Attrs, Buffer, Cursor, FontSystem, Metrics, SwashCache,
+    Align, Attrs, Buffer, Cursor, FontSystem, Metrics, Scroll, SwashCache,
     SwashContent, Wrap,
 };
 
@@ -47,6 +47,22 @@ pub struct VisibleDetails {
     pub line_height: f32,
 }
 
+#[derive(Debug)]
+pub enum TextShape {
+    Scroll { scroll: Scroll, prune: bool },
+    Cursor { cursor: Cursor, prune: bool },
+    Line { line: usize, prune: bool },
+}
+
+impl Default for TextShape {
+    fn default() -> Self {
+        TextShape::Scroll {
+            scroll: Scroll::default(),
+            prune: false,
+        }
+    }
+}
+
 /// Text to render to screen.
 ///
 #[derive(Debug)]
@@ -67,18 +83,14 @@ pub struct Text {
     pub store_id: Index,
     /// the draw order of the Text. created/updated when update is called.
     pub order: DrawOrder,
-    /// Cursor the shaping is set too.
-    pub cursor: Cursor,
-    /// line the shaping is set too.
-    pub line: usize,
-    /// set scroll to render too.
-    pub scroll: cosmic_text::Scroll,
+    /// Text Shaper to use defaults to
+    pub shaper: TextShape,
     /// Word Wrap Type. Default is Wrap::Word.
     pub wrap: Wrap,
     /// [`CameraView`] used to render with.
     pub camera_view: CameraView,
-    /// If anything got updated we need to update the buffers too.
     pub changed: bool,
+    pub was_shaped: bool,
 }
 
 thread_local! {
@@ -94,6 +106,8 @@ impl Text {
         atlas: &mut TextAtlas,
         renderer: &mut GpuRenderer,
     ) -> Result<(), GraphicsError> {
+        self.shape_now(renderer);
+
         let count: usize = self
             .buffer
             .lines
@@ -283,12 +297,11 @@ impl Text {
             store_id: renderer.new_ibo_store(text_starter_size),
             order: DrawOrder::new(false, pos, order_layer),
             changed: true,
+            was_shaped: false,
             default_color: Color::rgba(0, 0, 0, 255),
             camera_view: CameraView::default(),
-            cursor: Cursor::default(),
+            shaper: TextShape::default(),
             wrap: Wrap::Word,
-            line: 0,
-            scroll: cosmic_text::Scroll::default(),
             scale,
         }
     }
@@ -326,20 +339,14 @@ impl Text {
     ///
     pub fn set_text(
         &mut self,
-        renderer: &mut GpuRenderer,
         text: &str,
         attrs: &Attrs,
         shaping: cosmic_text::Shaping,
         alignment: Option<Align>,
     ) -> &mut Self {
-        self.buffer.set_text(
-            &mut renderer.font_sys,
-            text,
-            attrs,
-            shaping,
-            alignment,
-        );
+        self.buffer.set_text(text, attrs, shaping, alignment);
         self.changed = true;
+        self.was_shaped = false;
         self
     }
 
@@ -347,7 +354,6 @@ impl Text {
     ///
     pub fn set_rich_text<'r, 's, I>(
         &mut self,
-        renderer: &mut GpuRenderer,
         spans: I,
         default_attr: &Attrs,
         shaping: cosmic_text::Shaping,
@@ -356,14 +362,10 @@ impl Text {
     where
         I: IntoIterator<Item = (&'s str, Attrs<'r>)>,
     {
-        self.buffer.set_rich_text(
-            &mut renderer.font_sys,
-            spans,
-            default_attr,
-            shaping,
-            alignment,
-        );
+        self.buffer
+            .set_rich_text(spans, default_attr, shaping, alignment);
         self.changed = true;
+        self.was_shaped = false;
         self
     }
 
@@ -374,75 +376,109 @@ impl Text {
         &mut self.buffer
     }
 
-    /// cursor shaping sets the [`Text`]'s location to shape from and sets the buffers scroll.
+    /// For more advanced shaping and usage. Use [`Text::set_change`] to set if you need it to make changes or not.
+    /// This will not set the change to true. when changes are made you must set changed to true.
     ///
-    pub fn shape_until_cursor(
-        &mut self,
-        renderer: &mut GpuRenderer,
-        cursor: Cursor,
-    ) -> &mut Self {
-        if self.cursor != cursor || self.changed {
-            self.cursor = cursor;
-            self.line = 0;
-            self.changed = true;
-            self.buffer.shape_until_cursor(
-                &mut renderer.font_sys,
-                cursor,
-                false,
-            );
-            self.scroll = self.buffer.scroll();
+    ///
+    pub fn shape_now(&mut self, renderer: &mut GpuRenderer) -> &mut Self {
+        if !self.was_shaped {
+            match self.shaper {
+                TextShape::Cursor { cursor, prune } => {
+                    self.buffer.shape_until_cursor(
+                        &mut renderer.font_sys,
+                        cursor,
+                        prune,
+                    );
+                }
+                TextShape::Scroll { scroll, prune } => {
+                    self.buffer.set_scroll(scroll);
+                    self.buffer
+                        .shape_until_scroll(&mut renderer.font_sys, prune);
+                }
+                TextShape::Line { line, prune } => {
+                    self.buffer.shape_until_cursor(
+                        &mut renderer.font_sys,
+                        Cursor::new(line, 0),
+                        prune,
+                    );
+                }
+            }
+
+            self.was_shaped = true;
         }
 
         self
     }
 
-    /// cursor shaping sets the [`Text`]'s location to shape from.
+    /// cursor shaping sets the [`Text`]'s location to shape from and sets the buffers scroll.
     ///
-    pub fn shape_until(
+    pub fn set_until_cursor(
         &mut self,
-        renderer: &mut GpuRenderer,
-        line: usize,
+        new_cursor: Cursor,
+        prune: bool,
     ) -> &mut Self {
-        if self.line != line || self.changed {
-            self.cursor = Cursor::new(line, 0);
-            self.line = line;
-            self.changed = true;
-            self.buffer.shape_until_cursor(
-                &mut renderer.font_sys,
-                self.cursor,
-                false,
-            );
+        match self.shaper {
+            TextShape::Cursor { cursor, prune: _ } if cursor == new_cursor => {}
+            _ => {
+                self.shaper = TextShape::Cursor {
+                    cursor: new_cursor,
+                    prune,
+                };
+                self.changed = true;
+                self.was_shaped = false;
+            }
         }
+
+        self
+    }
+
+    /// Gets he [`Text`]'s buffers current Scroll location. Must be called After shape_now or update to retrieve it.
+    ///
+    pub fn get_scroll(&mut self) -> Scroll {
+        self.buffer.scroll()
+    }
+
+    /// cursor shaping sets the [`Text`]'s location to shape from.
+    /// Shaping Must be called before update.
+    ///
+    pub fn set_until_line(
+        &mut self,
+        new_line: usize,
+        prune: bool,
+    ) -> &mut Self {
+        match self.shaper {
+            TextShape::Line { line, prune: _ } if line == new_line => {}
+            _ => {
+                self.shaper = TextShape::Line {
+                    line: new_line,
+                    prune,
+                };
+                self.changed = true;
+                self.was_shaped = false;
+            }
+        }
+
         self
     }
 
     /// scroll shaping sets the [`Text`]'s location to shape from.
+    /// Shaping Must be called before update.
     ///
-    pub fn shape_until_scroll(
+    pub fn set_until_scroll(
         &mut self,
-        renderer: &mut GpuRenderer,
+        new_scroll: cosmic_text::Scroll,
+        prune: bool,
     ) -> &mut Self {
-        if self.changed {
-            self.buffer
-                .shape_until_scroll(&mut renderer.font_sys, false);
-        }
-
-        self
-    }
-
-    /// sets scroll for shaping and sets the [`Text`]'s location to shape from.
-    ///
-    pub fn set_scroll(
-        &mut self,
-        renderer: &mut GpuRenderer,
-        scroll: cosmic_text::Scroll,
-    ) -> &mut Self {
-        if self.scroll != scroll {
-            self.scroll = scroll;
-            self.buffer.set_scroll(scroll);
-            self.changed = true;
-            self.buffer
-                .shape_until_scroll(&mut renderer.font_sys, false);
+        match self.shaper {
+            TextShape::Scroll { scroll, prune: _ } if scroll == new_scroll => {}
+            _ => {
+                self.shaper = TextShape::Scroll {
+                    scroll: new_scroll,
+                    prune,
+                };
+                self.changed = true;
+                self.was_shaped = false;
+            }
         }
 
         self
@@ -455,17 +491,21 @@ impl Text {
         self
     }
 
+    /// Sets the [`Text`] so it will run the shaper the next time update or shape_now is run.
+    ///
+    pub fn reshape(&mut self) -> &mut Self {
+        self.was_shaped = false;
+        self
+    }
+
     /// Sets the [`Text`] wrapping.
     ///
-    pub fn set_wrap(
-        &mut self,
-        renderer: &mut GpuRenderer,
-        wrap: Wrap,
-    ) -> &mut Self {
+    pub fn set_wrap(&mut self, wrap: Wrap) -> &mut Self {
         if self.wrap != wrap {
             self.wrap = wrap;
-            self.buffer.set_wrap(&mut renderer.font_sys, wrap);
+            self.buffer.set_wrap(wrap);
             self.changed = true;
+            self.was_shaped = false;
         }
 
         self
@@ -500,31 +540,32 @@ impl Text {
     ///
     pub fn set_buffer_size(
         &mut self,
-        renderer: &mut GpuRenderer,
         width: Option<f32>,
         height: Option<f32>,
     ) -> &mut Self {
-        self.buffer.set_size(&mut renderer.font_sys, width, height);
+        self.buffer.set_size(width, height);
         self.changed = true;
+        self.was_shaped = false;
         self
     }
 
     /// clears the [`Text`] buffer.
     ///
-    pub fn clear(&mut self, renderer: &mut GpuRenderer) -> &mut Self {
+    pub fn clear(&mut self) -> &mut Self {
         self.buffer.set_text(
-            &mut renderer.font_sys,
             "",
             &cosmic_text::Attrs::new(),
             cosmic_text::Shaping::Basic,
             None,
         );
         self.changed = true;
+        self.was_shaped = false;
         self
     }
 
     // Used to check and update the vertex array.
     /// Returns a [`OrderedIndex`] used in Rendering.
+    /// A Shaping function Must be called before update.
     ///
     pub fn update(
         &mut self,
@@ -615,13 +656,10 @@ impl Text {
                 .unwrap_or(Metrics::new(16.0, 16.0).scale(options.scale)),
         );
 
-        buffer.set_wrap(font_system, options.wrap);
-        buffer.set_size(
-            font_system,
-            options.buffer_width,
-            options.buffer_height,
-        );
-        buffer.set_text(font_system, text, attrs, options.shaping, alignment);
+        buffer.set_wrap(options.wrap);
+        buffer.set_size(options.buffer_width, options.buffer_height);
+        buffer.set_text(text, attrs, options.shaping, alignment);
+        buffer.shape_until_scroll(font_system, false);
 
         #[cfg(not(feature = "rayon"))]
         let (width, total_lines) = buffer.layout_runs().fold(
@@ -672,12 +710,8 @@ impl Text {
                 .unwrap_or(Metrics::new(16.0, 16.0).scale(options.scale)),
         );
 
-        buffer.set_wrap(font_system, options.wrap);
-        buffer.set_size(
-            font_system,
-            options.buffer_width,
-            options.buffer_height,
-        );
+        buffer.set_wrap(options.wrap);
+        buffer.set_size(options.buffer_width, options.buffer_height);
 
         text.char_indices()
             .map(|(_position, ch)| {
@@ -687,13 +721,8 @@ impl Text {
                 let mut buf = vec![0; n];
                 let u = ch.encode_utf8(&mut buf);
 
-                buffer.set_text(
-                    font_system,
-                    u,
-                    attrs,
-                    options.shaping,
-                    alignment,
-                );
+                buffer.set_text(u, attrs, options.shaping, alignment);
+                buffer.shape_until_scroll(font_system, false);
 
                 #[cfg(not(feature = "rayon"))]
                 let (width, total_lines) = buffer.layout_runs().fold(

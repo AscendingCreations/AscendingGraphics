@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+## 0.39.0 (1. June, 2026)
+
+### Added
+-  Lights set_area_light_changed, set_directional_light_changed, set_changed
+
+### Changed
+- (Breaking) Updated Glam 0.33.0 and Cosmic text 0.19.0
+- (Breaking) Removed the need to have GpuRenderer for some Text based functions.
+- (Breaking) Removed set_scroll, renamed shape_until, shape_until_cursor and shape_until_scroll into  set_until_cursor, set_until_line, set_until_scroll.
+- (Breaking) set_until_cursor, set_until_line, set_until_scroll no longer shape the line, Shaping occurs at update OR when calling shape_now;
+
 ## 0.38.4 (27. March, 2026)
 ### Fixed
 - Issue where old surface was not unloaded before surface was reconfigured.
