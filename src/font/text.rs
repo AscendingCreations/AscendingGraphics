@@ -6,8 +6,8 @@ use crate::{
     parallel::*,
 };
 use cosmic_text::{
-    Align, Attrs, Buffer, Cursor, FontSystem, Metrics, Scroll, ShapeBuffer,
-    SwashCache, SwashContent, Wrap,
+    Align, Attrs, Buffer, Cursor, FontSystem, Metrics, Scroll, SwashCache,
+    SwashContent, Wrap,
 };
 
 /// [`Text`] Option Handler for [`Text::measure_string`].
