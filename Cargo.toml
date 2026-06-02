@@ -1,6 +1,6 @@
 [package]
 name = "ascending_graphics"
-version = "0.39.0"
+version = "0.40.0"
 authors = ["S.J.R. van Schaik", "Andrew Wheeler <genusistimelord@gmail.com>"]
 license = "MIT OR Apache-2.0"
 edition = "2024"
@@ -27,7 +27,7 @@ winit = { version = "0.30.13", features = ["serde"] }
 image = { version =  "0.25.10", features = ["serde"] }
 guillotiere = { version = "0.7.0", features = ["serialization"] }
 serde = { version = "1.0.228", features = ["derive"] }
-log = { version = "0.4.30", optional = true }
+log = { version = "0.4.31", optional = true }
 cosmic-text = { version = "0.19.0", features = ["shape-run-cache"] } #git = "https://github.com/pop-os/cosmic-text"
 lru = "0.18.0"
 glam = { version = "0.33.0", features = ["bytemuck", "mint", "serde"] }
