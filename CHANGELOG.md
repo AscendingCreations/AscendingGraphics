@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+## 0.40.0 (2. June, 2026)
+
+### Changed
+- (Breaking) Text::measure now shapes before it gets the measurement.
+- (Breaking) Text::measure gets FontSystem Requirement added to call.
+- (Breaking) Changes Text::shape_now to take FontSystem rather than GpuRenderer
+- (Breaking) Added TextShape to arguments of measure_string to better adjust your output.
+
 ## 0.39.0 (1. June, 2026)
 
 ### Added

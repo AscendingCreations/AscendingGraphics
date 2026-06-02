@@ -6,8 +6,8 @@ use crate::{
     parallel::*,
 };
 use cosmic_text::{
-    Align, Attrs, Buffer, Cursor, FontSystem, Metrics, Scroll, SwashCache,
-    SwashContent, Wrap,
+    Align, Attrs, Buffer, Cursor, FontSystem, Metrics, Scroll, ShapeBuffer,
+    SwashCache, SwashContent, Wrap,
 };
 
 /// [`Text`] Option Handler for [`Text::measure_string`].
@@ -89,7 +89,9 @@ pub struct Text {
     pub wrap: Wrap,
     /// [`CameraView`] used to render with.
     pub camera_view: CameraView,
+    /// If any changes that need to be reuploaded to the GPU occur
     pub changed: bool,
+    /// If the text was recently Shaped or not.
     pub was_shaped: bool,
 }
 
@@ -106,7 +108,7 @@ impl Text {
         atlas: &mut TextAtlas,
         renderer: &mut GpuRenderer,
     ) -> Result<(), GraphicsError> {
-        self.shape_now(renderer);
+        self.shape_now(&mut renderer.font_sys);
 
         let count: usize = self
             .buffer
@@ -380,24 +382,19 @@ impl Text {
     /// This will not set the change to true. when changes are made you must set changed to true.
     ///
     ///
-    pub fn shape_now(&mut self, renderer: &mut GpuRenderer) -> &mut Self {
+    pub fn shape_now(&mut self, font_system: &mut FontSystem) -> &mut Self {
         if !self.was_shaped {
             match self.shaper {
                 TextShape::Cursor { cursor, prune } => {
-                    self.buffer.shape_until_cursor(
-                        &mut renderer.font_sys,
-                        cursor,
-                        prune,
-                    );
+                    self.buffer.shape_until_cursor(font_system, cursor, prune);
                 }
                 TextShape::Scroll { scroll, prune } => {
                     self.buffer.set_scroll(scroll);
-                    self.buffer
-                        .shape_until_scroll(&mut renderer.font_sys, prune);
+                    self.buffer.shape_until_scroll(font_system, prune);
                 }
                 TextShape::Line { line, prune } => {
                     self.buffer.shape_until_cursor(
-                        &mut renderer.font_sys,
+                        font_system,
                         Cursor::new(line, 0),
                         prune,
                     );
@@ -623,10 +620,10 @@ impl Text {
         }
     }
 
-    /// measure's the [`Text`]'s Rendering Size.
+    /// shapes then measure's the [`Text`]'s Rendering Size.
     ///
-    pub fn measure(&self) -> Vec2 {
-        let details = self.visible_details();
+    pub fn measure(&mut self, font_system: &mut FontSystem) -> Vec2 {
+        let details = self.shape_now(font_system).visible_details();
 
         let (max_width, max_height) = self.buffer.size();
         let height = details.lines as f32 * details.line_height;
@@ -648,6 +645,7 @@ impl Text {
         attrs: &Attrs,
         options: TextOptions,
         alignment: Option<Align>,
+        text_shape: TextShape,
     ) -> Vec2 {
         let mut buffer = Buffer::new(
             font_system,
@@ -659,6 +657,24 @@ impl Text {
         buffer.set_wrap(options.wrap);
         buffer.set_size(options.buffer_width, options.buffer_height);
         buffer.set_text(text, attrs, options.shaping, alignment);
+
+        match text_shape {
+            TextShape::Cursor { cursor, prune } => {
+                buffer.shape_until_cursor(font_system, cursor, prune);
+            }
+            TextShape::Scroll { scroll, prune } => {
+                buffer.set_scroll(scroll);
+                buffer.shape_until_scroll(font_system, prune);
+            }
+            TextShape::Line { line, prune } => {
+                buffer.shape_until_cursor(
+                    font_system,
+                    Cursor::new(line, 0),
+                    prune,
+                );
+            }
+        }
+
         buffer.shape_until_scroll(font_system, false);
 
         #[cfg(not(feature = "rayon"))]
