@@ -198,9 +198,9 @@ dependencies = [
 
 [[package]]
 name = "ascending_time"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7ed420675a07cc4c9633aa0f59be275f9922516fbff55fc12eb553c8719f59b"
+checksum = "5e8799a77fa11336d85d03acca3d4ff097d3099a800ac347b6f2a925af26a7ab"
 dependencies = [
  "bytey",
  "chrono",

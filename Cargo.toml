@@ -52,7 +52,7 @@ version = "0.6.1"
 [dependencies.time]
 package = "ascending_time" 
 #path = "../AscendingTime"
-version = "0.2.3"
+version = "0.3.0"
 
 [dependencies.naga]
 #git = "https://github.com/gfx-rs/wgpu"
