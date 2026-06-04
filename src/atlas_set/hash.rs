@@ -1,6 +1,6 @@
 use core::hash::{Hash, Hasher};
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Default)]
 pub struct Prehashed(pub u64);
 
 impl Prehashed {
@@ -13,12 +13,6 @@ impl Prehashed {
 
     pub fn from_hash(hash: u64) -> Self {
         Self(hash)
-    }
-}
-
-impl Default for Prehashed {
-    fn default() -> Self {
-        Self(0)
     }
 }
 
