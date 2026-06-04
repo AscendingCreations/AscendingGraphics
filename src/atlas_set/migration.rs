@@ -1,5 +1,4 @@
 use crate::{Allocation, Atlas, AtlasSet, GraphicsError};
-use std::hash::Hash;
 use wgpu::CommandEncoder;
 
 #[derive(Debug, Default, Clone)]
@@ -11,7 +10,7 @@ pub struct MigrationTask {
     pub avaliable: Vec<usize>,
 }
 
-impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
+impl<Data: Copy + Default> AtlasSet<Data> {
     fn add_empty_layer(
         &mut self,
         task: &mut MigrationTask,

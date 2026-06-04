@@ -1,5 +1,4 @@
 use crate::{AtlasSet, GpuRenderer, Texture, parallel::*};
-use arcstr::ArcStr;
 use image::{EncodableLayout, ImageBuffer, RgbaImage};
 use std::sync::Arc;
 
@@ -36,7 +35,7 @@ pub struct TileBuilder {
     /// Texture ID to reload the above if needed.
     pub image: RgbaImage,
     pub is_empty: bool,
-    pub name: Option<ArcStr>,
+    pub name: Option<String>,
 }
 
 impl TileSheet {
@@ -46,9 +45,10 @@ impl TileSheet {
     /// Returns a Optional [`TileSheet`] upon successful completion.
     ///
     pub fn new(
+        tileset_name: &str,
         texture: Texture,
         renderer: &GpuRenderer,
-        atlas: &mut AtlasSet<ArcStr, i32>,
+        atlas: &mut AtlasSet<i32>,
         tilesize: u32,
     ) -> Option<TileSheet> {
         let tilecount =
@@ -68,12 +68,12 @@ impl TileSheet {
 
         // lets check this to add in the empty tile set first if nothing else yet exists.
         // Also lets add the black tile.
-        let empty = if let Some(empty) = atlas.lookup(&ArcStr::from("Empty")) {
+        let empty = if let Some(empty) = atlas.lookup(&"Empty") {
             empty
         } else {
             let image: RgbaImage = ImageBuffer::new(tilesize, tilesize);
             atlas.upload(
-                ArcStr::from("Empty"),
+                "Empty",
                 image.as_bytes(),
                 tilesize,
                 tilesize,
@@ -115,7 +115,7 @@ impl TileSheet {
                     name: if is_empty {
                         None
                     } else {
-                        Some(ArcStr::from(format!("{}-{}", texture.name(), id)))
+                        Some(format!("{}-{}", tileset_name, id))
                     },
                 }
             })
@@ -163,9 +163,10 @@ impl TileSheet {
     ///
     pub fn upload(
         &mut self,
+        tileset_name: &str,
         texture: Texture,
         renderer: &GpuRenderer,
-        atlas: &mut AtlasSet<ArcStr, i32>,
+        atlas: &mut AtlasSet<i32>,
         tilesize: u32,
     ) -> Option<()> {
         let tilecount =
@@ -180,12 +181,12 @@ impl TileSheet {
 
         // lets check this to add in the empty tile set first if nothing else yet exists.
         // Also lets add the black tile.
-        let empty = if let Some(empty) = atlas.lookup(&ArcStr::from("Empty")) {
+        let empty = if let Some(empty) = atlas.lookup(&"Empty") {
             empty
         } else {
             let image: RgbaImage = ImageBuffer::new(tilesize, tilesize);
             atlas.upload(
-                ArcStr::from("Empty"),
+                "Empty",
                 image.as_bytes(),
                 tilesize,
                 tilesize,
@@ -230,7 +231,7 @@ impl TileSheet {
                     name: if is_empty {
                         None
                     } else {
-                        Some(ArcStr::from(format!("{}-{}", texture.name(), id)))
+                        Some(format!("{}-{}", tileset_name, id))
                     },
                 }
             })
