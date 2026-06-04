@@ -1,21 +1,25 @@
 use crate::{
-    AHashMap, AHashSet, GpuRenderer, GraphicsError, TextureGroup,
-    TextureLayout, UVec3, parallel::*,
+    GpuRenderer, GraphicsError, TextureGroup, TextureLayout, UVec3, parallel::*,
 };
-use arcstr::ArcStr;
 use lru::LruCache;
 use slab::Slab;
-use std::{hash::Hash, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::{BuildHasherDefault, Hash},
+    sync::Arc,
+};
 use wgpu::{BindGroup, BindGroupLayout, TextureUsages};
 
 mod allocation;
 mod allocator;
 mod atlas;
+mod hash;
 mod migration;
 
 pub use allocation::Allocation;
 pub use allocator::Allocator;
 pub use atlas::Atlas;
+pub use hash::{Prehashed, Prehasher};
 use migration::*;
 /**
  * AtlasSet is used to hold and contain the data of many Atlas layers.
@@ -42,7 +46,7 @@ use migration::*;
  *
  * TODO Keep track of Indexs within an Atlas.
 */
-pub struct AtlasSet<U: Hash + Eq + Clone = ArcStr, Data: Copy + Default = i32> {
+pub struct AtlasSet<Data: Copy + Default = i32> {
     /// Texture in GRAM, Holds all the atlas layers.
     pub texture: wgpu::Texture,
     /// Layers of texture.
@@ -52,9 +56,9 @@ pub struct AtlasSet<U: Hash + Eq + Clone = ArcStr, Data: Copy + Default = i32> {
     /// Store the Allocations se we can easily remove and update them.
     /// use a Generation id to avoid conflict if users use older allocation id's.
     /// Also stores the Key associated with the Allocation.
-    pub store: Slab<(Allocation<Data>, U)>,
+    pub store: Slab<(Allocation<Data>, Prehashed)>,
     /// for key to index lookups.
-    pub lookup: AHashMap<U, usize>,
+    pub lookup: HashMap<Prehashed, usize, BuildHasherDefault<Prehasher>>,
     /// keeps a list of least used allocations so we can unload them when need be.
     /// Also include the RefCount per ID lookup.
     /// we use this to keep track of when Fonts need to be unloaded.
@@ -62,7 +66,7 @@ pub struct AtlasSet<U: Hash + Eq + Clone = ArcStr, Data: Copy + Default = i32> {
     pub cache: LruCache<usize, usize>,
     /// List of allocations used in the last frame to ensure we dont unload what is
     /// in use.
-    pub last_used: AHashSet<usize>,
+    pub last_used: HashSet<Prehashed, BuildHasherDefault<Prehasher>>,
     /// Format the Texture uses.
     pub format: wgpu::TextureFormat,
     /// When the System will Error if reached. This is the max allowed Layers
@@ -85,7 +89,7 @@ pub struct AtlasSet<U: Hash + Eq + Clone = ArcStr, Data: Copy + Default = i32> {
     pub migration: Option<MigrationTask>,
 }
 
-impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
+impl<Data: Copy + Default> AtlasSet<Data> {
     fn allocate(
         &mut self,
         width: u32,
@@ -119,7 +123,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
                 let (&id, _) = self.cache.peek_lru()?;
 
                 //Check if ID has been used yet?
-                if self.last_used.contains(&id) {
+                if self.last_used.contains(&Prehashed::new(id)) {
                     //Failed to find any unused allocations so lets try to add a layer.
                     break;
                 }
@@ -322,10 +326,10 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
                 vec![Atlas::new(size)]
             },
             store: Slab::with_capacity(512),
-            lookup: AHashMap::new(),
+            lookup: HashMap::with_hasher(Default::default()),
             size,
             cache: LruCache::unbounded(),
-            last_used: AHashSet::default(),
+            last_used: HashSet::with_hasher(Default::default()),
             format,
             max_layers: limits.max_texture_array_layers as usize,
             deallocations_limit: 32,
@@ -502,10 +506,11 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
 
     /// Promotes the cache's Allocation by key making it recently used..
     ///
-    pub fn promote_by_key(&mut self, key: U) {
-        if let Some(id) = self.lookup.get(&key) {
+    pub fn promote_by_key<U: Hash + Eq>(&mut self, key: U) {
+        let hash = Prehashed::new(key);
+        if let Some(id) = self.lookup.get(&hash) {
             self.cache.promote(id);
-            self.last_used.insert(*id);
+            self.last_used.insert(Prehashed::new(*id)); //testing this capability..
         }
     }
 
@@ -513,19 +518,22 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     ///
     pub fn promote(&mut self, id: usize) {
         self.cache.promote(&id);
-        self.last_used.insert(id);
+        self.last_used.insert(Prehashed::new(id));
     }
 
     /// Gets the [`Allocation`]'s index if it exists.
     ///
-    pub fn lookup(&self, key: &U) -> Option<usize> {
-        self.lookup.get(key).copied()
+    pub fn lookup<U: Hash + Eq>(&self, key: &U) -> Option<usize> {
+        self.lookup.get(&Prehashed::new(key)).copied()
     }
 
     /// Gets using key the reference of [`Allocation`] with key if it exists.
     ///
-    pub fn peek_by_key(&self, key: &U) -> Option<&(Allocation<Data>, U)> {
-        if let Some(id) = self.lookup.get(key) {
+    pub fn peek_by_key<U: Hash + Eq>(
+        &self,
+        key: &U,
+    ) -> Option<&(Allocation<Data>, Prehashed)> {
+        if let Some(id) = self.lookup.get(&Prehashed::new(key)) {
             self.store.get(*id)
         } else {
             None
@@ -534,14 +542,14 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
 
     /// Gets using index the reference of [`Allocation`] with key if it exists.
     ///
-    pub fn peek(&self, id: usize) -> Option<&(Allocation<Data>, U)> {
+    pub fn peek(&self, id: usize) -> Option<&(Allocation<Data>, Prehashed)> {
         self.store.get(id)
     }
 
     /// If [`Allocation`] using key exists.
     ///
-    pub fn contains_key(&self, key: &U) -> bool {
-        self.lookup.contains_key(key)
+    pub fn contains_key<U: Hash + Eq>(&self, key: &U) -> bool {
+        self.lookup.contains_key(&Prehashed::new(key))
     }
 
     /// If [`Allocation`] at id exists.
@@ -553,11 +561,14 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     /// Gets using key the [`Allocation`] if it exists.
     /// Also Increments the Cache and adds to last_used list.
     ///
-    pub fn get_by_key(&mut self, key: &U) -> Option<Allocation<Data>> {
-        let id = *self.lookup.get(key)?;
+    pub fn get_by_key<U: Hash + Eq>(
+        &mut self,
+        key: &U,
+    ) -> Option<Allocation<Data>> {
+        let id = *self.lookup.get(&Prehashed::new(key))?;
         if let Some((allocation, _)) = self.store.get(id) {
             self.cache.promote(&id);
-            self.last_used.insert(id);
+            self.last_used.insert(Prehashed::new(id));
             return Some(*allocation);
         }
 
@@ -570,7 +581,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     pub fn get(&mut self, id: usize) -> Option<Allocation<Data>> {
         if let Some((allocation, _)) = self.store.get(id) {
             self.cache.promote(&id);
-            self.last_used.insert(id);
+            self.last_used.insert(Prehashed::new(id));
             return Some(*allocation);
         }
 
@@ -583,8 +594,8 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     ///
     /// returns the layer id if removed otherwise None for everything else.
     ///
-    pub fn remove_by_key(&mut self, key: &U) -> Option<usize> {
-        let id = *self.lookup.get(key)?;
+    pub fn remove_by_key<U: Hash + Eq>(&mut self, key: &U) -> Option<usize> {
+        let id = *self.lookup.get(&Prehashed::new(key))?;
         let refcount = self.cache.pop(&id)?.saturating_sub(1);
 
         if self.use_ref_count && refcount > 0 {
@@ -593,8 +604,8 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
         }
 
         let (allocation, _) = self.store.remove(id);
-        self.last_used.remove(&id);
-        self.lookup.remove(key);
+        self.last_used.remove(&Prehashed::new(id));
+        self.lookup.remove(&Prehashed::new(key));
         self.layers
             .get_mut(allocation.layer)?
             .deallocate(id, allocation.allocation);
@@ -616,7 +627,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
         }
 
         let (allocation, key) = self.store.remove(id);
-        self.last_used.remove(&id);
+        self.last_used.remove(&Prehashed::new(id));
         self.lookup.remove(&key);
         self.layers
             .get_mut(allocation.layer)?
@@ -633,7 +644,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     /// - data: any specail generic data for the texture.
     ///
     #[allow(clippy::too_many_arguments)]
-    pub fn upload(
+    pub fn upload<U: Hash + Eq>(
         &mut self,
         key: U,
         bytes: &[u8],
@@ -642,6 +653,8 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
         data: Data,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
+        let key = Prehashed::new(key);
+
         if let Some(&id) = self.lookup.get(&key) {
             Some(id)
         } else {
@@ -654,7 +667,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
             };
 
             self.upload_allocation(bytes, &allocation, renderer);
-            let id = self.store.insert((allocation, key.clone()));
+            let id = self.store.insert((allocation, key));
             self.layers[allocation.layer].insert_index(id);
             self.lookup.insert(key, id);
             self.cache.push(id, 1);
@@ -671,7 +684,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     /// - data: any specail generic data for the texture.
     ///
     #[allow(clippy::too_many_arguments)]
-    pub fn upload_with_alloc(
+    pub fn upload_with_alloc<U: Hash + Eq>(
         &mut self,
         key: U,
         bytes: &[u8],
@@ -680,6 +693,8 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
         data: Data,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation<Data>)> {
+        let key = Prehashed::new(key);
+
         if let Some(&id) = self.lookup.get(&key) {
             let (allocation, _) = self.store.get(id)?;
             Some((id, *allocation))
@@ -693,9 +708,9 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
             };
 
             self.upload_allocation(bytes, &allocation, renderer);
-            let id = self.store.insert((allocation, key.clone()));
+            let id = self.store.insert((allocation, key));
             self.layers[allocation.layer].insert_index(id);
-            self.lookup.insert(key.clone(), id);
+            self.lookup.insert(key, id);
             self.cache.push(id, 1);
             Some((id, allocation))
         }
@@ -713,7 +728,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
     /// - data: any specail generic data for the texture.
     ///
     #[allow(clippy::too_many_arguments)]
-    pub fn set_alloc(
+    pub fn set_alloc<U: Hash + Eq>(
         &mut self,
         key: U,
         width: u32,
@@ -721,6 +736,7 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
         data: Data,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation<Data>)> {
+        let key = Prehashed::new(key);
         let (width, height) = (width.max(1), height.max(1));
 
         if let Some(&id) = self.lookup.get(&key) {
@@ -735,9 +751,9 @@ impl<U: Hash + Eq + Clone, Data: Copy + Default> AtlasSet<U, Data> {
                 allocation
             };
 
-            let id = self.store.insert((allocation, key.clone()));
+            let id = self.store.insert((allocation, key));
             self.layers[allocation.layer].insert_index(id);
-            self.lookup.insert(key.clone(), id);
+            self.lookup.insert(key, id);
             self.cache.push(id, 1);
             Some((id, allocation))
         }

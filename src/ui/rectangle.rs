@@ -172,9 +172,13 @@ impl Rect {
         atlas: &mut AtlasSet,
         path: String,
     ) -> Result<&mut Self, GraphicsError> {
-        let (id, allocation) =
-            Texture::upload_from_with_alloc(path, atlas, renderer)
-                .ok_or_else(|| OtherError::new("failed to upload image"))?;
+        let (id, allocation) = Texture::upload_from_with_alloc(
+            &path,
+            path.clone(),
+            atlas,
+            renderer,
+        )
+        .ok_or_else(|| OtherError::new("failed to upload image"))?;
 
         let rect = allocation.rect();
 

@@ -11,9 +11,9 @@ use log::{error, warn};
 ///
 pub struct TextAtlas {
     /// AtlasSet holding data from Text only.
-    pub(crate) text: AtlasSet<CacheKey, Vec2>,
+    pub(crate) text: AtlasSet<Vec2>,
     /// AtlasSet holding data from Colored Emoji's only.
-    pub(crate) emoji: AtlasSet<CacheKey, Vec2>,
+    pub(crate) emoji: AtlasSet<Vec2>,
 }
 
 impl TextAtlas {

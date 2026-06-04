@@ -31,7 +31,7 @@ pub use system::*;
 pub use vbo::{IndexDetails, VertexBuffer};
 pub use vbo_store::*;
 
-pub(crate) use ahash::{AHashMap, AHashSet, AHasher};
+pub(crate) use ahash::{AHashMap, AHasher};
 
 pub(crate) type ABuildHasher = std::hash::BuildHasherDefault<AHasher>;
 pub(crate) type AIndexSet<K> = indexmap::IndexSet<K, ABuildHasher>;
