@@ -2,6 +2,7 @@ use crate::{
     AHashMap, AHashSet, GpuRenderer, GraphicsError, TextureGroup,
     TextureLayout, UVec3, parallel::*,
 };
+use arcstr::ArcStr;
 use lru::LruCache;
 use slab::Slab;
 use std::{hash::Hash, sync::Arc};
@@ -41,7 +42,7 @@ use migration::*;
  *
  * TODO Keep track of Indexs within an Atlas.
 */
-pub struct AtlasSet<U: Hash + Eq + Clone = String, Data: Copy + Default = i32> {
+pub struct AtlasSet<U: Hash + Eq + Clone = ArcStr, Data: Copy + Default = i32> {
     /// Texture in GRAM, Holds all the atlas layers.
     pub texture: wgpu::Texture,
     /// Layers of texture.
