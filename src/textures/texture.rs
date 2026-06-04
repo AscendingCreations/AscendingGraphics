@@ -1,12 +1,13 @@
 use crate::{Allocation, AtlasSet, GpuRenderer, GraphicsError, TileSheet};
+use arcstr::ArcStr;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use std::{io::Error, path::Path};
 
 /// Holds the Textures information for Uploading to the GPU.
 #[derive(Clone, Debug, Default)]
 pub struct Texture {
-    /// full path.
-    name: String,
+    /// full path or name used for lookups in the Atlas.
+    name: ArcStr,
     /// Loaded bytes of the Texture.
     pub bytes: Vec<u8>,
     /// Width and Height of the Texture.
@@ -29,7 +30,7 @@ impl Texture {
             .ok_or_else(|| Error::other("could not convert name to String"))?
             .to_owned();
 
-        Ok(Self::from_image(name, image::open(path)?))
+        Ok(Self::from_image(&name, image::open(path)?))
     }
 
     /// Creates a [`Texture`] from loaded File and uploads it to an [`AtlasSet`].
@@ -37,10 +38,10 @@ impl Texture {
     ///
     pub fn upload_from(
         path: impl AsRef<Path>,
-        atlas: &mut AtlasSet<String, i32>,
+        atlas: &mut AtlasSet<ArcStr, i32>,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
-        let name = path.as_ref().to_str()?.to_owned();
+        let name = ArcStr::from(path.as_ref().to_str()?);
 
         if let Some(id) = atlas.lookup(&name) {
             Some(id)
@@ -51,15 +52,35 @@ impl Texture {
         }
     }
 
+    /// Creates a [`Texture`] from Memory and uploads it to an [`AtlasSet`].
+    /// Returns Associated [`AtlasSet`] Index.
+    ///
+    pub fn upload_from_memory(
+        name: &str,
+        data: &[u8],
+        atlas: &mut AtlasSet<ArcStr, i32>,
+        renderer: &GpuRenderer,
+    ) -> Option<usize> {
+        let name = ArcStr::from(name);
+
+        if let Some(id) = atlas.lookup(&name) {
+            Some(id)
+        } else {
+            let texture = Texture::from_memory(&name, data).ok()?;
+            let (width, height) = texture.size();
+            atlas.upload(name, texture.bytes(), width, height, 0, renderer)
+        }
+    }
+
     /// Creates a [`Texture`] from loaded File and uploads it to an [`AtlasSet`].
     /// Returns Associated [`AtlasSet`] Index and [`Allocation`].
     ///
     pub fn upload_from_with_alloc(
         path: impl AsRef<Path>,
-        atlas: &mut AtlasSet<String, i32>,
+        atlas: &mut AtlasSet<ArcStr, i32>,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation)> {
-        let name = path.as_ref().to_str()?.to_owned();
+        let name = ArcStr::from(path.as_ref().to_str()?);
 
         if let Some(id) = atlas.lookup(&name) {
             atlas.peek(id).map(|(allocation, _)| (id, *allocation))
@@ -79,26 +100,27 @@ impl Texture {
 
     /// Creates a [`Texture`] from [`DynamicImage`].
     ///
-    pub fn from_image(name: String, image: DynamicImage) -> Self {
+    pub fn from_image(name: &str, image: DynamicImage) -> Self {
         let size = image.dimensions();
         let bytes = image.into_rgba8().into_raw();
 
-        Self { name, bytes, size }
+        Self {
+            name: name.into(),
+            bytes,
+            size,
+        }
     }
 
     /// Creates a [`Texture`] from Memory.
     ///
-    pub fn from_memory(
-        name: String,
-        data: &[u8],
-    ) -> Result<Self, GraphicsError> {
+    pub fn from_memory(name: &str, data: &[u8]) -> Result<Self, GraphicsError> {
         Ok(Self::from_image(name, image::load_from_memory(data)?))
     }
 
     /// Creates a [`Texture`] from Memory with [`ImageFormat`].
     ///
     pub fn from_memory_with_format(
-        name: String,
+        name: &str,
         data: &[u8],
         format: ImageFormat,
     ) -> Result<Self, GraphicsError> {
@@ -113,7 +135,7 @@ impl Texture {
     ///
     pub fn upload(
         &self,
-        atlas: &mut AtlasSet<String, i32>,
+        atlas: &mut AtlasSet<ArcStr, i32>,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
         let (width, height) = self.size;
@@ -125,7 +147,7 @@ impl Texture {
     ///
     pub fn upload_with_alloc(
         &self,
-        atlas: &mut AtlasSet<String, i32>,
+        atlas: &mut AtlasSet<ArcStr, i32>,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation)> {
         let (width, height) = self.size;
@@ -144,7 +166,7 @@ impl Texture {
     ///
     pub fn new_tilesheet(
         self,
-        atlas: &mut AtlasSet<String, i32>,
+        atlas: &mut AtlasSet<ArcStr, i32>,
         renderer: &GpuRenderer,
         tilesize: u32,
     ) -> Option<TileSheet> {
@@ -157,7 +179,7 @@ impl Texture {
     pub fn tilesheet_upload(
         self,
         tilesheet: &mut TileSheet,
-        atlas: &mut AtlasSet<String, i32>,
+        atlas: &mut AtlasSet<ArcStr, i32>,
         renderer: &GpuRenderer,
         tilesize: u32,
     ) -> Option<()> {
