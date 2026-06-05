@@ -185,9 +185,9 @@ dependencies = [
 
 [[package]]
 name = "ascending_input"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ec2ce92a4dec6fcfcd155e161dfbb5df2c501b3e07403c6a38105c32bc50f2"
+checksum = "1125704a39023414058019b609997898088cf6f005efb779b3ad6ba424d5d965"
 dependencies = [
  "ahash",
  "ordered-float",

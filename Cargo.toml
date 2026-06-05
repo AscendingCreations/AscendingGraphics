@@ -47,7 +47,7 @@ version = "0.9.0"
 [dependencies.input]
 package = "ascending_input" 
 #path = "../AscendingInput"
-version = "0.6.1"
+version = "0.6.2"
 
 [dependencies.time]
 package = "ascending_time" 
