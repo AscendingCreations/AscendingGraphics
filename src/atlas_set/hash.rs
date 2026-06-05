@@ -1,5 +1,9 @@
 use core::hash::{Hash, Hasher};
 
+/// this is great for reducing ram and increasing speed but it can also increase the chance of a collision
+/// returning since there is no Value to compare against when one is found. This should be fine as any call
+/// to a contains will tell us if it collides or not.
+///
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Default)]
 pub struct Prehashed(pub u64);
 
