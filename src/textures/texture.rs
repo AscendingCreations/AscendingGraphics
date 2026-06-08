@@ -1,7 +1,6 @@
 use crate::{Allocation, AtlasSet, GpuRenderer, GraphicsError, TileSheet};
 use image::{DynamicImage, GenericImageView, ImageFormat};
-use std::path::Path;
-
+use std::{hash::Hash, path::Path};
 /// Holds the Textures information for Uploading to the GPU.
 #[derive(Clone, Debug, Default)]
 pub struct Texture {
@@ -27,8 +26,8 @@ impl Texture {
     /// Creates a [`Texture`] from loaded File and uploads it to an [`AtlasSet`].
     /// Returns Associated [`AtlasSet`] Index.
     ///
-    pub fn upload_from(
-        name: &str,
+    pub fn upload_from<U: Hash + Eq>(
+        name: U,
         path: impl AsRef<Path>,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
@@ -45,8 +44,8 @@ impl Texture {
     /// Creates a [`Texture`] from Memory and uploads it to an [`AtlasSet`].
     /// Returns Associated [`AtlasSet`] Index.
     ///
-    pub fn upload_from_memory(
-        name: &str,
+    pub fn upload_from_memory<U: Hash + Eq>(
+        name: U,
         data: &[u8],
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
@@ -63,8 +62,8 @@ impl Texture {
     /// Creates a [`Texture`] from loaded File and uploads it to an [`AtlasSet`].
     /// Returns Associated [`AtlasSet`] Index and [`Allocation`].
     ///
-    pub fn upload_from_with_alloc(
-        name: &str,
+    pub fn upload_from_with_alloc<U: Hash + Eq>(
+        name: U,
         path: impl AsRef<Path>,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
@@ -114,9 +113,9 @@ impl Texture {
     /// Uploads a [`Texture`] into an [`AtlasSet`].
     /// Returns Associated [`AtlasSet`] Index.
     ///
-    pub fn upload(
+    pub fn upload<U: Hash + Eq>(
         &self,
-        name: &str,
+        name: U,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
@@ -127,9 +126,9 @@ impl Texture {
     /// Uploads a [`Texture`] into an [`AtlasSet`].
     /// Returns Associated [`AtlasSet`] Index and [`Allocation`].
     ///
-    pub fn upload_with_alloc(
+    pub fn upload_with_alloc<U: Hash + Eq>(
         &self,
-        name: &str,
+        name: U,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation)> {

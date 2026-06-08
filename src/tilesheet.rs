@@ -27,7 +27,7 @@ pub struct TileSheet {
 /// this is only needed for the Editor.
 ///
 #[derive(Debug)]
-pub struct TileBuilder {
+pub struct TileBuilder<'a> {
     pub id: usize,
     /// Location of the tile within the loaded Texture.
     pub x: u32,
@@ -35,8 +35,22 @@ pub struct TileBuilder {
     /// Texture ID to reload the above if needed.
     pub image: RgbaImage,
     pub is_empty: bool,
-    pub name: Option<String>,
+    pub name: Option<TileID<'a>>,
 }
+
+/// Used to store and retrieve tiles via their ID and Tilesheet name.
+/// use the EMPTY_TILE constant to get the empty tile location in texture.
+///
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub struct TileID<'a> {
+    tileset_name: &'a str,
+    id: u32,
+}
+
+pub const EMPTY_TILE: TileID = TileID {
+    tileset_name: "",
+    id: 0,
+};
 
 impl TileSheet {
     /// Creates a New [`TileSheet`] from a [`Texture`].
@@ -68,12 +82,12 @@ impl TileSheet {
 
         // lets check this to add in the empty tile set first if nothing else yet exists.
         // Also lets add the black tile.
-        let empty = if let Some(empty) = atlas.lookup(&"Empty") {
+        let empty = if let Some(empty) = atlas.lookup(&EMPTY_TILE) {
             empty
         } else {
             let image: RgbaImage = ImageBuffer::new(tilesize, tilesize);
             atlas.upload(
-                "Empty",
+                EMPTY_TILE,
                 image.as_bytes(),
                 tilesize,
                 tilesize,
@@ -115,7 +129,7 @@ impl TileSheet {
                     name: if is_empty {
                         None
                     } else {
-                        Some(format!("{}-{}", tileset_name, id))
+                        Some(TileID { tileset_name, id })
                     },
                 }
             })
@@ -181,12 +195,12 @@ impl TileSheet {
 
         // lets check this to add in the empty tile set first if nothing else yet exists.
         // Also lets add the black tile.
-        let empty = if let Some(empty) = atlas.lookup(&"Empty") {
+        let empty = if let Some(empty) = atlas.lookup(&EMPTY_TILE) {
             empty
         } else {
             let image: RgbaImage = ImageBuffer::new(tilesize, tilesize);
             atlas.upload(
-                "Empty",
+                EMPTY_TILE,
                 image.as_bytes(),
                 tilesize,
                 tilesize,
@@ -231,7 +245,7 @@ impl TileSheet {
                     name: if is_empty {
                         None
                     } else {
-                        Some(format!("{}-{}", tileset_name, id))
+                        Some(TileID { tileset_name, id })
                     },
                 }
             })
