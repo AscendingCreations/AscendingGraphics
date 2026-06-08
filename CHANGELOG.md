@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
+## 0.42.0 (8. June, 2026)
+
+### Changed
+- (Breaking) Texture no longer stores its path or uses its path for the textures Key in AtlasSet.
+- (Breaking) Texture Functions other than the Tileset builder functions now take a key: Hash+Eq
+- (Breaking) Atlas Set no longer stores Keys with their Builders which can affect collisions.
+
 
 ## 0.41.0 (3. June, 2026)
 
