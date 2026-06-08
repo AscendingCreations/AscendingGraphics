@@ -27,17 +27,17 @@ impl Texture {
     /// Returns Associated [`AtlasSet`] Index.
     ///
     pub fn upload_from<U: Hash + Eq>(
-        name: U,
+        key: U,
         path: impl AsRef<Path>,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
-        if let Some(id) = atlas.lookup(&name) {
+        if let Some(id) = atlas.lookup(&key) {
             Some(id)
         } else {
             let texture = Texture::from_file(path).ok()?;
             let (width, height) = texture.size();
-            atlas.upload(name, texture.bytes(), width, height, 0, renderer)
+            atlas.upload(key, texture.bytes(), width, height, 0, renderer)
         }
     }
 
@@ -45,17 +45,17 @@ impl Texture {
     /// Returns Associated [`AtlasSet`] Index.
     ///
     pub fn upload_from_memory<U: Hash + Eq>(
-        name: U,
+        key: U,
         data: &[u8],
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
-        if let Some(id) = atlas.lookup(&name) {
+        if let Some(id) = atlas.lookup(&key) {
             Some(id)
         } else {
             let texture = Texture::from_memory(data).ok()?;
             let (width, height) = texture.size();
-            atlas.upload(name, texture.bytes(), width, height, 0, renderer)
+            atlas.upload(key, texture.bytes(), width, height, 0, renderer)
         }
     }
 
@@ -63,18 +63,18 @@ impl Texture {
     /// Returns Associated [`AtlasSet`] Index and [`Allocation`].
     ///
     pub fn upload_from_with_alloc<U: Hash + Eq>(
-        name: U,
+        key: U,
         path: impl AsRef<Path>,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation)> {
-        if let Some(id) = atlas.lookup(&name) {
+        if let Some(id) = atlas.lookup(&key) {
             atlas.peek(id).map(|(allocation, _)| (id, *allocation))
         } else {
             let texture = Texture::from_file(path).ok()?;
             let (width, height) = texture.size();
             atlas.upload_with_alloc(
-                name,
+                key,
                 texture.bytes(),
                 width,
                 height,
@@ -115,12 +115,12 @@ impl Texture {
     ///
     pub fn upload<U: Hash + Eq>(
         &self,
-        name: U,
+        key: U,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<usize> {
         let (width, height) = self.size;
-        atlas.upload(name, &self.bytes, width, height, 0, renderer)
+        atlas.upload(key, &self.bytes, width, height, 0, renderer)
     }
 
     /// Uploads a [`Texture`] into an [`AtlasSet`].
@@ -128,12 +128,12 @@ impl Texture {
     ///
     pub fn upload_with_alloc<U: Hash + Eq>(
         &self,
-        name: U,
+        key: U,
         atlas: &mut AtlasSet<i32>,
         renderer: &GpuRenderer,
     ) -> Option<(usize, Allocation)> {
         let (width, height) = self.size;
-        atlas.upload_with_alloc(name, &self.bytes, width, height, 0, renderer)
+        atlas.upload_with_alloc(key, &self.bytes, width, height, 0, renderer)
     }
 
     /// Splits the Texture into Tiles.
