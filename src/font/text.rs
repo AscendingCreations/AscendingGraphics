@@ -370,10 +370,7 @@ impl Text {
     /// Unloades the [`Text`]'s Uniform Index and sets the text uniform id to 0 without a uniform buffer.
     /// Run this to Reaquire Uniform Id's before unloading Text. This does nothing if id is already 0.
     ///
-    pub fn unload_text_uniform_index(
-        &mut self,
-        text_renderer: &mut TextRenderer,
-    ) {
+    pub fn unload_uniform_id(&mut self, text_renderer: &mut TextRenderer) {
         if self.text_uniform_id > 0 {
             text_renderer.unused_indexs.push_front(self.text_uniform_id);
         }

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
+
+### Added
+- Text::new_with_buffer and unload_uniform_id added to Text.
+
+### Changed
+- (Breaking) Text now uses a optional Uniform to help Boost position moving speed for up to 3999 individual Text.
+- Text::new creates Text without setting a uniform buffer id.
+
+
 ## 0.42.0 (8. June, 2026)
 
 ### Changed
