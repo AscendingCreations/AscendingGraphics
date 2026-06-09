@@ -1,8 +1,4 @@
-use std::{
-    collections::VecDeque,
-    iter, mem,
-    sync::{LazyLock, Mutex},
-};
+use std::{collections::VecDeque, iter, mem};
 
 use crate::{
     Allocation, AsBufferPass, AtlasSet, GpuRenderer, GraphicsError,
