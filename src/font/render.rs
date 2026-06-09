@@ -1,11 +1,19 @@
+use std::{
+    collections::VecDeque,
+    iter, mem,
+    sync::{LazyLock, Mutex},
+};
+
 use crate::{
     Allocation, AsBufferPass, AtlasSet, GpuRenderer, GraphicsError,
-    InstanceBuffer, SetBuffers, StaticVertexBuffer, Text, TextRenderPipeline,
-    TextVertex, Vec2, instance_buffer::OrderedIndex,
+    InstanceBuffer, MAX_UNIFORMED_TEXT, SetBuffers, StaticVertexBuffer, Text,
+    TextRenderPipeline, TextUniformLayout, TextUniformRaw, TextVertex, Vec2,
+    instance_buffer::OrderedIndex,
 };
 use cosmic_text::{CacheKey, SwashCache, SwashImage};
 #[cfg(feature = "logging")]
 use log::{error, warn};
+use wgpu::util::{DeviceExt as _, align_to};
 
 /// [`Text`] text and Emoji AtlasSet holder.
 ///
@@ -112,15 +120,61 @@ impl TextAtlas {
 pub struct TextRenderer {
     pub buffer: InstanceBuffer<TextVertex>,
     pub swash_cache: SwashCache,
+    /// Stores each unused buffer ID to be pulled into a map_index_buffer for the map ID.
+    pub unused_indexs: VecDeque<usize>,
+    /// Uniform buffer for the 2500 count array of [`crate::Text`]'s base shared data.
+    pub(crate) text_buffer: wgpu::Buffer,
+    /// Uniform buffer BindGroup for the 2500 count array of [`crate::Text`]'s base shared data.
+    text_bind_group: wgpu::BindGroup,
 }
 
 impl TextRenderer {
     /// Creates a new [`TextRenderer`].
     ///
-    pub fn new(renderer: &GpuRenderer) -> Result<Self, GraphicsError> {
+    pub fn new(renderer: &mut GpuRenderer) -> Result<Self, GraphicsError> {
+        let text_alignment: usize =
+            align_to(mem::size_of::<TextUniformRaw>(), 16) as usize;
+
+        let text_uniforms: Vec<u8> =
+            iter::repeat_n(0u8, MAX_UNIFORMED_TEXT * text_alignment).collect();
+
+        let text_buffer = renderer.device().create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("text uniform buffer"),
+                contents: &text_uniforms, //500
+                usage: wgpu::BufferUsages::UNIFORM
+                    | wgpu::BufferUsages::COPY_DST,
+            },
+        );
+
+        // Create the bind group layout for the map
+        let layout = renderer.create_layout(TextUniformLayout);
+
+        // Create the bind group.
+        let text_bind_group =
+            renderer
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: text_buffer.as_entire_binding(),
+                    }],
+                    label: Some("map_bind_group"),
+                });
+
+        let mut unused_indexs = VecDeque::with_capacity(MAX_UNIFORMED_TEXT);
+
+        for i in 1..MAX_UNIFORMED_TEXT {
+            unused_indexs.push_back(i);
+        }
+
         Ok(Self {
             buffer: InstanceBuffer::with_capacity(renderer.gpu_device(), 1024),
             swash_cache: SwashCache::new(),
+            text_buffer,
+            text_bind_group,
+            unused_indexs,
         })
     }
 
@@ -162,10 +216,16 @@ impl TextRenderer {
         renderer: &mut GpuRenderer,
         buffer_layer: usize,
     ) -> Result<(), GraphicsError> {
-        let index = text.update(&mut self.swash_cache, atlas, renderer)?;
+        let index = text.update(self, atlas, renderer)?;
 
         self.add_buffer_store(renderer, index, buffer_layer);
         Ok(())
+    }
+
+    /// Returns a reference too [`wgpu::BindGroup`].
+    ///
+    pub fn bind_group(&self) -> &wgpu::BindGroup {
+        &self.text_bind_group
     }
 }
 
@@ -202,6 +262,7 @@ where
             self.set_buffers(renderer.buffer_object.as_buffer_pass());
             self.set_bind_group(1, atlas.text.bind_group(), &[]);
             self.set_bind_group(2, atlas.emoji.bind_group(), &[]);
+            self.set_bind_group(3, buffer.bind_group(), &[]);
             self.set_vertex_buffer(1, buffer.buffer.instances(None));
             self.set_pipeline(
                 renderer.get_pipelines(TextRenderPipeline).unwrap(),

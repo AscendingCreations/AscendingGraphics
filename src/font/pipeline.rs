@@ -1,6 +1,6 @@
 use crate::{
     BufferLayout, GpuDevice, LayoutStorage, PipeLineLayout, StaticVertexBuffer,
-    SystemLayout, TextVertex, TextureLayout,
+    SystemLayout, TextUniformLayout, TextVertex, TextureLayout,
 };
 use bytemuck::{Pod, Zeroable};
 
@@ -28,6 +28,7 @@ impl PipeLineLayout for TextRenderPipeline {
 
         let system_layout = layouts.create_layout(gpu_device, SystemLayout);
         let texture_layout = layouts.create_layout(gpu_device, TextureLayout);
+        let text_layout = layouts.create_layout(gpu_device, TextUniformLayout);
 
         // Create the render pipeline.
         gpu_device.device().create_render_pipeline(
@@ -40,6 +41,7 @@ impl PipeLineLayout for TextRenderPipeline {
                             Some(&system_layout),
                             Some(&texture_layout),
                             Some(&texture_layout),
+                            Some(&text_layout),
                         ],
                         immediate_size: 0,
                     },

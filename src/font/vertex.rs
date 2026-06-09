@@ -17,6 +17,7 @@ pub struct TextVertex {
     pub color: u32,
     pub camera_view: u32,
     pub is_color: u32,
+    pub text_id: u32,
 }
 
 impl Default for TextVertex {
@@ -29,13 +30,14 @@ impl Default for TextVertex {
             color: 0,
             camera_view: 0,
             is_color: 0,
+            text_id: 0,
         }
     }
 }
 
 impl BufferLayout for TextVertex {
     fn attributes() -> Vec<wgpu::VertexAttribute> {
-        wgpu::vertex_attr_array![1 => Float32x3, 2 => Float32x2, 3 => Float32x2, 4 => Uint32, 5 => Uint32, 6 => Uint32, 7 => Uint32]
+        wgpu::vertex_attr_array![1 => Float32x3, 2 => Float32x2, 3 => Float32x2, 4 => Uint32, 5 => Uint32, 6 => Uint32, 7 => Uint32, 8 => Uint32]
             .to_vec()
     }
 
@@ -57,6 +59,6 @@ impl BufferLayout for TextVertex {
     }
 
     fn stride() -> usize {
-        std::mem::size_of::<[f32; 11]>()
+        std::mem::size_of::<[f32; 12]>()
     }
 }
