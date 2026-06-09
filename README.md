@@ -10,7 +10,7 @@ Ascending Graphics
 ## 📑 Overview
 
 <p align="center">
-    A 2D extendable rendering library using WGPU and Winit.
+    A 2D opinionated extendable rendering framework using WGPU and Winit.
 </p>
 
 - [`WGPU`](https://crates.io/crates/wgpu) Backend.
