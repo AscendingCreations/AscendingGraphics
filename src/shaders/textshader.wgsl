@@ -16,6 +16,13 @@ struct Global {
 @binding(0)
 var<uniform> global: Global;
 
+struct TextPosition {
+    pos: vec2<f32>,
+    _padding: f32,
+};
+
+const c_texts: u32 = 4000u;
+
 struct VertexInput {
     @builtin(vertex_index) vertex_idx: u32,
     @location(0) v_pos: vec2<f32>,
@@ -26,6 +33,7 @@ struct VertexInput {
     @location(5) color: u32,
     @location(6) camera_view: u32,
     @location(7) is_color: u32,
+    @location(8) text_id: u32,
 };
 
 struct VertexOutput {
@@ -49,6 +57,10 @@ var emoji_tex: texture_2d_array<f32>;
 @group(2)
 @binding(1)
 var emoji_tex_sample: sampler;
+
+@group(3)
+@binding(0)
+var<uniform> text: array<TextPosition, c_texts>;
 
 fn srgb_to_linear(c: f32) -> f32 {
     if c <= 0.04045 {
@@ -80,6 +92,9 @@ fn vertex(
     } else {
         size = textureDimensions(tex);
     }
+
+    pos.x += text[vertex.text_id].pos.x;
+    pos.y += text[vertex.text_id].pos.y;
 
     let fsize = vec2<f32> (f32(size.x), f32(size.y));
     let v = vertex.vertex_idx % 4u;

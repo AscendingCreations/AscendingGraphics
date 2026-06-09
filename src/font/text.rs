@@ -1,14 +1,15 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, mem};
 
 use crate::{
     Bounds, CameraView, Color, DrawOrder, GpuRenderer, GraphicsError, Index,
-    TextAtlas, TextVertex, Vec2, Vec3, instance_buffer::OrderedIndex,
-    parallel::*,
+    TextAtlas, TextRenderer, TextUniformRaw, TextVertex, Vec2, Vec3,
+    instance_buffer::OrderedIndex, parallel::*,
 };
 use cosmic_text::{
     Align, Attrs, Buffer, Cursor, FontSystem, Metrics, Scroll, SwashCache,
     SwashContent, Wrap,
 };
+use wgpu::util::align_to;
 
 /// [`Text`] Option Handler for [`Text::measure_string`].
 ///
@@ -89,6 +90,10 @@ pub struct Text {
     pub wrap: Wrap,
     /// [`CameraView`] used to render with.
     pub camera_view: CameraView,
+    /// ID that points to the uniform if used to help optimize position.
+    pub text_uniform_id: usize,
+    /// If position changed then we will see if it is set to a uniformID > 0
+    pub position_changed: bool,
     /// If any changes that need to be reuploaded to the GPU occur
     pub changed: bool,
     /// If the text was recently Shaped or not.
@@ -130,8 +135,17 @@ impl Text {
         // From Glyphon good optimization.
         let is_run_visible = |run: &cosmic_text::LayoutRun| {
             if let Some(bounds) = self.bounds {
-                let start_y = self.pos.y + self.size.y - run.line_top;
-                let end_y = self.pos.y + self.size.y
+                let start_y = if self.text_uniform_id > 0 {
+                    0.0
+                } else {
+                    self.pos.y
+                } + self.size.y
+                    - run.line_top;
+                let end_y = if self.text_uniform_id > 0 {
+                    0.0
+                } else {
+                    self.pos.y
+                } + self.size.y
                     - run.line_top
                     - (run.line_height * 0.5);
 
@@ -149,7 +163,11 @@ impl Text {
             .for_each(|run| {
                 run.glyphs.iter().for_each(|glyph| {
                     let physical_glyph = glyph.physical(
-                        (self.pos.x, self.pos.y + self.size.y),
+                        if self.text_uniform_id > 0 {
+                            (0.0, self.size.y)
+                        } else {
+                            (self.pos.x, self.pos.y + self.size.y)
+                        },
                         self.scale,
                     );
 
@@ -251,6 +269,7 @@ impl Text {
                             color: color.0,
                             camera_view: self.camera_view as u32,
                             is_color: is_color as u32,
+                            text_id: self.text_uniform_id as u32,
                         })
                     });
                 });
@@ -274,7 +293,8 @@ impl Text {
         Ok(())
     }
 
-    /// Creates a new [`Text`].
+    /// Creates a new [`Text`] without a uniform for position optimization.
+    /// Useful for Text that Never changes its position.
     ///
     /// order_layer: Rendering Layer of the Text used in DrawOrder.
     pub fn new(
@@ -305,7 +325,32 @@ impl Text {
             shaper: TextShape::default(),
             wrap: Wrap::Word,
             scale,
+            text_uniform_id: 0,
+            position_changed: true,
         }
+    }
+
+    /// Creates a new [`Text`].with a uniform buffer for position optimization.
+    /// If no avaliable uniforms Exist it will use buffer 0 which means no optimizations.
+    ///
+    /// order_layer: Rendering Layer of the Text used in DrawOrder.
+    pub fn new_with_buffer(
+        renderer: &mut GpuRenderer,
+        text_renderer: &mut TextRenderer,
+        metrics: Option<Metrics>,
+        pos: Vec3,
+        size: Vec2,
+        scale: f32,
+        order_layer: u32,
+    ) -> Self {
+        let mut text =
+            Self::new(renderer, metrics, pos, size, scale, order_layer);
+
+        // Attempt to get a open slot, If not we default to the unchanged index of 0.
+        // if set to 0 the text is less optimized and rebuilds each position update.
+        text.text_uniform_id =
+            text_renderer.unused_indexs.pop_front().unwrap_or_default();
+        text
     }
 
     /// Sets the [`Text`]'s [`CameraView`] for rendering.
@@ -320,6 +365,20 @@ impl Text {
     ///
     pub fn unload(self, renderer: &mut GpuRenderer) {
         renderer.remove_ibo_store(self.store_id);
+    }
+
+    /// Unloades the [`Text`]'s Uniform Index and sets the text uniform id to 0 without a uniform buffer.
+    /// Run this to Reaquire Uniform Id's before unloading Text. This does nothing if id is already 0.
+    ///
+    pub fn unload_text_uniform_index(
+        &mut self,
+        text_renderer: &mut TextRenderer,
+    ) {
+        if self.text_uniform_id > 0 {
+            text_renderer.unused_indexs.push_front(self.text_uniform_id);
+        }
+
+        self.text_uniform_id = 0;
     }
 
     /// Updates the [`Text`]'s order to overide the last set position.
@@ -488,6 +547,13 @@ impl Text {
         self
     }
 
+    /// Sets the [`Text`] as position changed for updating.
+    ///
+    pub fn set_position_change(&mut self, changed: bool) -> &mut Self {
+        self.position_changed = changed;
+        self
+    }
+
     /// Sets the [`Text`] so it will run the shaper the next time update or shape_now is run.
     ///
     pub fn reshape(&mut self) -> &mut Self {
@@ -521,7 +587,7 @@ impl Text {
     pub fn set_pos(&mut self, pos: Vec3) -> &mut Self {
         self.pos = pos;
         self.order.set_pos(pos);
-        self.changed = true;
+        self.position_changed = true;
         self
     }
 
@@ -566,13 +632,33 @@ impl Text {
     ///
     pub fn update(
         &mut self,
-        cache: &mut SwashCache,
+        text_renderer: &mut TextRenderer,
         atlas: &mut TextAtlas,
         renderer: &mut GpuRenderer,
     ) -> Result<OrderedIndex, GraphicsError> {
-        if self.changed {
-            self.create_quad(cache, atlas, renderer)?;
+        if self.position_changed && self.text_uniform_id > 0 {
+            let queue = renderer.queue();
+            let text_uniform = TextUniformRaw {
+                pos: [self.pos.x, self.pos.y],
+                padding: 0.0,
+            };
+
+            let text_alignment: usize =
+                align_to(mem::size_of::<TextUniformRaw>(), 16) as usize;
+
+            queue.write_buffer(
+                &text_renderer.text_buffer,
+                (self.text_uniform_id * text_alignment) as wgpu::BufferAddress,
+                bytemuck::bytes_of(&text_uniform),
+            );
+
+            self.position_changed = false;
+        }
+
+        if self.changed || self.position_changed {
+            self.create_quad(&mut text_renderer.swash_cache, atlas, renderer)?;
             self.changed = false;
+            self.position_changed = false;
         }
 
         Ok(OrderedIndex::new(self.order, self.store_id))
