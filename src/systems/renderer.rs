@@ -199,7 +199,7 @@ impl GpuRenderer {
         match self.frame.take() {
             Some(frame) => {
                 self.window.pre_present_notify();
-                frame.present();
+                self.queue().present(frame);
                 Ok(())
             }
             None => Err(GraphicsError::Other(OtherError::new(

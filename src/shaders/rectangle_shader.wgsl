@@ -23,12 +23,12 @@ struct VertexInput {
     @location(1) position: vec3<f32>,
     @location(2) size: vec2<f32>,
     @location(3) uv: vec4<f32>,
-    @location(4) color: u32,
+    @location(4) @interpolate(flat) color: u32,
     @location(5) border_width: f32,
-    @location(6) border_color: u32,
-    @location(7) layer: u32,
+    @location(6) @interpolate(flat) border_color: u32,
+    @location(7) @interpolate(flat) layer: u32,
     @location(8) radius: f32,
-    @location(9) camera_view: u32,
+    @location(9) @interpolate(flat) camera_view: u32,
 };
 
 struct VertexOutput {
@@ -41,7 +41,7 @@ struct VertexOutput {
     @location(6) size: vec2<f32>,
     @location(7) border_width: f32,
     @location(8) radius: f32,
-    @location(9) layer: i32,
+    @location(9) @interpolate(flat) layer: i32,
     @location(10) tex_size: vec2<f32>,
 };
 

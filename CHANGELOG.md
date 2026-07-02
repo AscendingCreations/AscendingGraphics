@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+## 0.44.0 (2. July, 2026)
+
+### Changed
+- (Breaking) Updated to support wgpu v30.0.0. We decided to stick wioth SDR defaults for now for wider support atm.
+
 ## 0.43.0 (9. June, 2026)
 
 ### Added

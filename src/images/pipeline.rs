@@ -47,18 +47,18 @@ impl PipeLineLayout for ImageRenderPipeline {
                     module: &shader,
                     entry_point: Some("vertex"),
                     buffers: &[
-                        wgpu::VertexBufferLayout {
+                        Some(wgpu::VertexBufferLayout {
                             array_stride: StaticVertexBuffer::stride(),
                             step_mode: wgpu::VertexStepMode::Vertex,
                             attributes: &[
                                 StaticVertexBuffer::vertex_attribute(),
                             ],
-                        },
-                        wgpu::VertexBufferLayout {
+                        }),
+                        Some(wgpu::VertexBufferLayout {
                             array_stride: ImageVertex::stride() as u64,
                             step_mode: wgpu::VertexStepMode::Instance,
                             attributes: &ImageVertex::attributes(),
-                        },
+                        }),
                     ],
                     compilation_options: Default::default(),
                 },

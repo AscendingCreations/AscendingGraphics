@@ -28,18 +28,18 @@ struct VertexInput {
     @builtin(vertex_index) vertex_idx: u32,
     @location(0) v_pos: vec2<f32>,
     @location(1) position: vec3<f32>,
-    @location(2) tile_id: u32,
-    @location(3) texture_layer: u32,
-    @location(4) color: u32,
-    @location(5) map_layer: u32,
-    @location(6) map_id: u32,
-    @location(7) anim_time: u32,
+    @location(2) @interpolate(flat) tile_id: u32,
+    @location(3) @interpolate(flat) texture_layer: u32,
+    @location(4) @interpolate(flat) color: u32,
+    @location(5) @interpolate(flat) map_layer: u32,
+    @location(6) @interpolate(flat) map_id: u32,
+    @location(7) @interpolate(flat) anim_time: u32,
 };
 
 struct VertexOutput {
     @invariant @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
-    @location(1) uv_layer: i32,
+    @location(1) @interpolate(flat) uv_layer: i32,
     @location(2) color: vec4<f32>,
 };
 

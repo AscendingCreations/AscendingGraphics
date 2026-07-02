@@ -22,14 +22,14 @@ struct VertexInput {
     @location(1) position: vec3<f32>,
     @location(2) hw: vec2<f32>,
     @location(3) tex_data: vec4<f32>,
-    @location(4) color: u32,
+    @location(4) @interpolate(flat) color: u32,
     @location(5) frames: vec2<f32>,
-    @location(6) animate: u32,
-    @location(7) camera_view: u32,
-    @location(8) time: u32,
-    @location(9) layer: i32,
+    @location(6) @interpolate(flat) animate: u32,
+    @location(7) @interpolate(flat) camera_view: u32,
+    @location(8) @interpolate(flat) time: u32,
+    @location(9) @interpolate(flat) layer: i32,
     @location(10) angle: f32,
-    @location(11) flip_style: u32,
+    @location(11) @interpolate(flat) flip_style: u32,
 };
 
 struct VertexOutput {
@@ -37,11 +37,11 @@ struct VertexOutput {
     @location(0) tex_coords: vec2<f32>,
     @location(1) tex_data: vec4<f32>,
     @location(2) col: vec4<f32>,
-    @location(3) frames: vec2<u32>,
+    @location(3) @interpolate(flat)  frames: vec2<u32>,
     @location(4) size: vec2<f32>,
-    @location(5) layer: i32,
-    @location(6) time: u32,
-    @location(7) animate: u32,
+    @location(5) @interpolate(flat) layer: i32,
+    @location(6) @interpolate(flat) time: u32,
+    @location(7) @interpolate(flat) animate: u32,
 };
 
 struct Axises {

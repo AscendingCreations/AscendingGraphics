@@ -42,11 +42,11 @@ impl PipeLineLayout for Mesh2DRenderPipeline {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: Some("vertex"),
-                    buffers: &[wgpu::VertexBufferLayout {
+                    buffers: &[Some(wgpu::VertexBufferLayout {
                         array_stride: Mesh2DVertex::stride() as u64,
                         step_mode: wgpu::VertexStepMode::Vertex,
                         attributes: &Mesh2DVertex::attributes(),
-                    }],
+                    })],
                     compilation_options: Default::default(),
                 },
                 primitive: wgpu::PrimitiveState {

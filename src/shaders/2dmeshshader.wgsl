@@ -19,8 +19,8 @@ var<uniform> global: Global;
 struct VertexInput {
     @builtin(vertex_index) vertex_idx: u32,
     @location(0) position: vec3<f32>,
-    @location(1) color: u32,
-    @location(2) camera_view: u32,
+    @location(1) @interpolate(flat) color: u32,
+    @location(2) @interpolate(flat) camera_view: u32,
 };
 
 struct VertexOutput {

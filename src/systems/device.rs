@@ -257,6 +257,7 @@ impl AdapterExt for wgpu::Adapter {
 
         let caps: AHashSet<TextureFormat> = caps.formats.into_iter().collect();
 
+        // Currently we only support SDR. Maybe upgrade to support HDR later on.
         let format = if caps.get(&TextureFormat::Rgba8UnormSrgb).is_some() {
             TextureFormat::Rgba8UnormSrgb
         } else if caps.get(&TextureFormat::Bgra8UnormSrgb).is_some() {
@@ -279,6 +280,7 @@ impl AdapterExt for wgpu::Adapter {
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![format],
             desired_maximum_frame_latency: 2,
+            color_space: wgpu::SurfaceColorSpace::Auto,
         };
 
         surface.configure(&device, &surface_config);

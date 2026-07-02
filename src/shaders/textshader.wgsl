@@ -29,19 +29,19 @@ struct VertexInput {
     @location(1) pos: vec3<f32>,
     @location(2) hw: vec2<f32>,
     @location(3) uv: vec2<f32>,
-    @location(4) layer: u32,
-    @location(5) color: u32,
-    @location(6) camera_view: u32,
-    @location(7) is_color: u32,
-    @location(8) text_id: u32,
-};
+    @location(4) @interpolate(flat) layer: u32,
+    @location(5) @interpolate(flat) color: u32,
+    @location(6) @interpolate(flat) camera_view: u32,
+    @location(7) @interpolate(flat) is_color: u32,
+    @location(8) @interpolate(flat) text_id: u32,
+}; 
 
 struct VertexOutput {
     @invariant @builtin(position) clip_position: vec4<f32>,
     @location(1) color: vec4<f32>,
     @location(2) uv: vec2<f32>,
-    @location(3) layer: i32,
-    @location(4) is_color: u32,
+    @location(3) @interpolate(flat) layer: i32,
+    @location(4) @interpolate(flat) is_color: u32,
 };
 
 @group(1)

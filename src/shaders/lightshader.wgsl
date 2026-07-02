@@ -44,9 +44,9 @@ struct VertexInput {
     @builtin(vertex_index) vertex_idx: u32,
     @location(0) v_pos: vec2<f32>,
     @location(1) world_color: vec4<f32>,
-    @location(2) enable_lights: u32,
-    @location(3) dir_count: u32,
-    @location(4) area_count: u32,
+    @location(2) @interpolate(flat) enable_lights: u32,
+    @location(3) @interpolate(flat) dir_count: u32,
+    @location(4) @interpolate(flat) area_count: u32,
     @location(5) pos: vec3<f32>,
     @location(6) size: vec2<f32>,
 };
@@ -55,9 +55,9 @@ struct VertexOutput {
     @invariant @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_coords: vec4<f32>,
     @location(1) col: vec4<f32>,
-    @location(2) enable_lights: u32,
-    @location(3) dir_count: u32,
-    @location(4) area_count: u32,
+    @location(2) @interpolate(flat) enable_lights: u32,
+    @location(3) @interpolate(flat) dir_count: u32,
+    @location(4) @interpolate(flat) area_count: u32,
 };
 
 const c_area_lights: u32 = 2000u;
