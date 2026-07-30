@@ -249,7 +249,7 @@ impl Text {
 
                         // Clip top edge
                         if y + offsety < bounds.bottom {
-                            height -= bounds.bottom - (y + offsety);
+                            height -= bounds.bottom - y;
                             y = bounds.bottom;
                         }
 
