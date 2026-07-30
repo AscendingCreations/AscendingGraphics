@@ -135,17 +135,8 @@ impl Text {
         // From Glyphon good optimization.
         let is_run_visible = |run: &cosmic_text::LayoutRun| {
             if let Some(bounds) = self.bounds {
-                let start_y = if self.text_uniform_id > 0 {
-                    0.0
-                } else {
-                    self.pos.y
-                } + self.size.y
-                    - run.line_top;
-                let end_y = if self.text_uniform_id > 0 {
-                    0.0
-                } else {
-                    self.pos.y
-                } + self.size.y
+                let start_y = self.pos.y + self.size.y - run.line_top;
+                let end_y = self.pos.y + self.size.y
                     - run.line_top
                     - (run.line_height * 0.5);
 
@@ -170,6 +161,17 @@ impl Text {
                         },
                         self.scale,
                     );
+
+                    let offsetx = if self.text_uniform_id == 0 {
+                        0.0
+                    } else {
+                        self.pos.x
+                    };
+                    let offsety = if self.text_uniform_id == 0 {
+                        0.0
+                    } else {
+                        self.pos.y
+                    };
 
                     let (allocation, is_color) =
                         if let Some((allocation, is_color)) =
@@ -226,14 +228,14 @@ impl Text {
 
                     if let Some(bounds) = self.bounds {
                         // Starts beyond right edge or ends beyond left edge
-                        let max_x = x + width;
-                        if x > bounds.right || max_x < bounds.left {
+                        let max_x = x + offsetx + width;
+                        if x + offsetx > bounds.right || max_x < bounds.left {
                             return;
                         }
 
                         // Clip left edge
-                        if x < bounds.left {
-                            let right_shift = bounds.left - x;
+                        if x + offsetx < bounds.left {
+                            let right_shift = bounds.left - (x + offsetx);
 
                             x = bounds.left;
                             width = max_x - bounds.left;
@@ -241,19 +243,20 @@ impl Text {
                         }
 
                         // Clip right edge
-                        if x + width > bounds.right {
-                            width = bounds.right - x;
+                        if x + offsetx + width > bounds.right {
+                            width = bounds.right - (x + offsetx);
                         }
 
                         // Clip top edge
-                        if y < bounds.bottom {
-                            height -= bounds.bottom - y;
+                        if y + offsety < bounds.bottom {
+                            height -= bounds.bottom - (y + offsety);
                             y = bounds.bottom;
                         }
 
                         // Clip top edge
-                        if y + height > bounds.top {
-                            let bottom_shift = (y + height) - bounds.top;
+                        if y + offsety + height > bounds.top {
+                            let bottom_shift =
+                                (y + offsety + height) - bounds.top;
 
                             v += bottom_shift;
                             height -= bottom_shift;
