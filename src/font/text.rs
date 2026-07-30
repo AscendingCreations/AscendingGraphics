@@ -235,7 +235,7 @@ impl Text {
 
                         // Clip left edge
                         if x + offsetx < bounds.left {
-                            let right_shift = bounds.left - (x + offsetx);
+                            let right_shift = bounds.left - x;
 
                             x = bounds.left;
                             width = max_x - bounds.left;
@@ -244,7 +244,7 @@ impl Text {
 
                         // Clip right edge
                         if x + offsetx + width > bounds.right {
-                            width = bounds.right - (x + offsetx);
+                            width = bounds.right - x;
                         }
 
                         // Clip top edge
@@ -255,8 +255,7 @@ impl Text {
 
                         // Clip top edge
                         if y + offsety + height > bounds.top {
-                            let bottom_shift =
-                                (y + offsety + height) - bounds.top;
+                            let bottom_shift = (y + height) - bounds.top;
 
                             v += bottom_shift;
                             height -= bottom_shift;
