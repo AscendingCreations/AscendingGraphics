@@ -232,6 +232,8 @@ impl Text {
                         let max_x = x + width;
                         if x + offsetx > bounds.right
                             || max_x + offsetx < bounds.left
+                            || y + offsety + height < bounds.bottom
+                            || y + offsety > bounds.top
                         {
                             return;
                         }
