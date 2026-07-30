@@ -228,34 +228,40 @@ impl Text {
 
                     if let Some(bounds) = self.bounds {
                         // Starts beyond right edge or ends beyond left edge
-                        let max_x = x + offsetx + width;
-                        if x + offsetx > bounds.right || max_x < bounds.left {
+
+                        let max_x = x + width;
+                        if x + offsetx > bounds.right
+                            || max_x + offsetx < bounds.left
+                        {
                             return;
                         }
 
                         // Clip left edge
                         if x + offsetx < bounds.left {
-                            let right_shift = bounds.left - x;
+                            let right_shift =
+                                (bounds.left - (x + offsetx)).min(width);
 
-                            x = bounds.left;
-                            width = max_x - bounds.left;
+                            x = bounds.left - offsetx;
+                            //          =16 + 8 - 16 = 8
+                            width = (max_x + offsetx) - bounds.left;
                             u += right_shift;
                         }
 
                         // Clip right edge
                         if x + offsetx + width > bounds.right {
-                            width = bounds.right - x;
+                            width = bounds.right - (x + offsetx);
                         }
 
-                        // Clip top edge
+                        // Clip bottom edge
                         if y + offsety < bounds.bottom {
-                            height -= bounds.bottom - y;
-                            y = bounds.bottom;
+                            height -= bounds.bottom - (y + offsety);
+                            y = bounds.bottom - offsety;
                         }
 
                         // Clip top edge
                         if y + offsety + height > bounds.top {
-                            let bottom_shift = (y + height) - bounds.top;
+                            let bottom_shift =
+                                (y + offsety + height) - bounds.top;
 
                             v += bottom_shift;
                             height -= bottom_shift;
