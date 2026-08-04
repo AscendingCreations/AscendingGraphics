@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
+### Changed
+- (Breaking) Removed Bounds from Image, Anim_image, Rect, design your system to use event driven layers with scissoring instead. 
+  Text will still have the ability to use CPU rendered Bounds for those who need it.
+- Added Uniform Position Offset checks to the Text Bounds in case you are attempting to use it with the uniform buffer.
 
 ## 0.44.0 (2. July, 2026)
 
