@@ -1,5 +1,5 @@
 use crate::{
-    AtlasSet, Bounds, CameraView, DrawOrder, GpuRenderer, GraphicsError, Index,
+    AtlasSet, CameraView, DrawOrder, GpuRenderer, GraphicsError, Index,
     OtherError, RectVertex, Texture, Vec2, Vec3, Vec4,
     instance_buffer::OrderedIndex,
 };
@@ -32,8 +32,6 @@ pub struct Rect {
     pub store_id: Index,
     /// the draw order of the rect. created/updated when update is called.
     pub order: DrawOrder,
-    /// Optional Bounds for Clipping the Rect too.
-    pub bounds: Option<Bounds>,
     /// If anything got updated we need to update the buffers too.
     pub changed: bool,
 }
@@ -63,7 +61,6 @@ impl Rect {
             camera_view: CameraView::default(),
             store_id: renderer.new_ibo_store(rect_size),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
-            bounds: None,
             changed: true,
         }
     }
@@ -93,7 +90,6 @@ impl Rect {
             camera_view: CameraView::default(),
             store_id: renderer.new_ibo_store(rect_size),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
-            bounds: None,
             changed: true,
         }
     }
@@ -124,13 +120,6 @@ impl Rect {
     ///
     pub fn set_order_alpha(&mut self, alpha: bool) -> &mut Self {
         self.order.alpha = alpha;
-        self
-    }
-
-    /// Updates the [`Rect`]'s Clipping Bounds.
-    ///
-    pub fn update_bounds(&mut self, bounds: Option<Bounds>) -> &mut Self {
-        self.bounds = bounds;
         self
     }
 

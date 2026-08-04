@@ -7,8 +7,8 @@ pub use render::*;
 pub use vertex::*;
 
 use crate::{
-    AtlasSet, Bounds, CameraView, Color, DrawOrder, FlipStyle, GpuRenderer,
-    Index, Vec2, Vec3, Vec4, instance_buffer::OrderedIndex,
+    AtlasSet, CameraView, Color, DrawOrder, FlipStyle, GpuRenderer, Index,
+    Vec2, Vec3, Vec4, instance_buffer::OrderedIndex,
 };
 
 /// Basic and Fast Image Rendering Type. Best used for Sprites and Objects in the world.
@@ -31,8 +31,6 @@ pub struct Image {
     pub store_id: Index,
     /// Ordering Type, used to order the Stores in the buffers.
     pub order: DrawOrder,
-    /// Clip bounds if enabled in the renderer.
-    pub bounds: Option<Bounds>,
     /// Directional Flip.
     pub flip_style: FlipStyle,
     /// direct angle of rotation from the center Axis.
@@ -64,7 +62,6 @@ impl Image {
                 bytemuck::bytes_of(&ImageVertex::default()).len(),
             ),
             order: DrawOrder::new(false, Vec3::default(), order_layer),
-            bounds: None,
             flip_style: FlipStyle::None,
             rotation_angle: 0.0,
             changed: true,
@@ -82,13 +79,6 @@ impl Image {
     ///
     pub fn set_order_override(&mut self, order_override: Vec3) -> &mut Self {
         self.order.set_pos(order_override);
-        self
-    }
-
-    /// Updates the [`Image`]'s Optional Clipping Bounds.
-    ///
-    pub fn update_bounds(&mut self, bounds: Option<Bounds>) -> &mut Self {
-        self.bounds = bounds;
         self
     }
 
