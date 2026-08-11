@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - (Breaking) Removed Bounds from Image, Anim_image, Rect, design your system to use event driven layers with scissoring instead. 
   Text will still have the ability to use CPU rendered Bounds for those who need it.
 - Added Uniform Position Offset checks to the Text Bounds in case you are attempting to use it with the uniform buffer.
+- (Breaking) Updated ascending Time library 0.4.0
 
 ## 0.44.0 (2. July, 2026)
 
