@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
+
+## 0.47.0 (17. October, 2026)
+
+Changed
+- (Breaking) Updated to newest version of glam 0.34.1
+- (Breaking) Draw Order changed from u32 to i32 for the x,y,z ordering.
+
 ## 0.46.0 (11. August, 2026)
 
 Changed
