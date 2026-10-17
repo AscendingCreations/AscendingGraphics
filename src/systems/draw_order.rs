@@ -23,13 +23,13 @@ pub struct DrawOrder {
     pub alpha: bool,
     /// X Position on the Screen. Sorted After Y.
     /// Sorted by lowest to highest.
-    pub x: u32,
+    pub x: i32,
     /// Y Position on the Screen. Sorted After Alpha.
     /// Sorted by highest to lowest.
-    pub y: u32,
+    pub y: i32,
     /// Z Position on the Screen. Sorted After X.
     /// Sorted by highest to lowest.
-    pub z: u32,
+    pub z: i32,
 }
 
 impl PartialOrd for DrawOrder {
@@ -55,15 +55,15 @@ impl DrawOrder {
         Self {
             order_layer,
             alpha,
-            x: (pos.x * 10000.0) as u32,
-            y: (pos.y * 10000.0) as u32,
-            z: (pos.z * 10000.0) as u32,
+            x: (pos.x * 10000.0) as i32,
+            y: (pos.y * 10000.0) as i32,
+            z: (pos.z * 10000.0) as i32,
         }
     }
 
     pub fn set_pos(&mut self, pos: Vec3) {
-        self.x = (pos.x * 10000.0) as u32;
-        self.y = (pos.y * 10000.0) as u32;
-        self.z = (pos.z * 10000.0) as u32;
+        self.x = (pos.x * 10000.0) as i32;
+        self.y = (pos.y * 10000.0) as i32;
+        self.z = (pos.z * 10000.0) as i32;
     }
 }
