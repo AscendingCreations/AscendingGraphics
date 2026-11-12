@@ -299,9 +299,7 @@ where
             }
         }
 
-        for i in 0..8 {
-            self.changed[i] = false;
-        }
+        self.changed.iter_mut().for_each(|changed| *changed = false);
     }
 
     /// Updates the GPU's shader struct Global with new screen size information.

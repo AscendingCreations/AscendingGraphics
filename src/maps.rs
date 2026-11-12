@@ -278,9 +278,8 @@ impl Map {
         visible: bool,
     ) {
         if !self.can_render && visible {
-            for i in 0..=1 {
-                if let Some(store) = renderer.get_ibo_store_mut(self.stores[i])
-                {
+            for key in self.stores {
+                if let Some(store) = renderer.get_ibo_store_mut(key) {
                     store.changed = true;
                 }
             }
