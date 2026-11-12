@@ -119,19 +119,11 @@ fn vertex(
     let id = global.seconds / (f32(vertex.anim_time) / 1000.0);
     let frame = u32(floor(id % f32(4)));
 
-    if vertex.map_layer == 3 && frame != 0u {
+    if (vertex.map_layer == 3 && frame != 0u) || (vertex.map_layer == 4 && frame != 1u) ||
+        (vertex.map_layer == 5 && frame != 2u) || (vertex.map_layer == 6 && frame != 3u) {
         result.uv = vec2<f32>(0.0, 0.0);
         result.clip_position = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    } else if vertex.map_layer == 4 && frame != 1u {
-        result.uv = vec2<f32>(0.0, 0.0);
-        result.clip_position = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    } else if vertex.map_layer == 5 && frame != 2u {
-        result.uv = vec2<f32>(0.0, 0.0);
-        result.clip_position = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    } else if vertex.map_layer == 6 && frame != 3u {
-        result.uv = vec2<f32>(0.0, 0.0);
-        result.clip_position = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    }
+    } 
 
     result.uv_layer = i32(vertex.texture_layer);
     return result;

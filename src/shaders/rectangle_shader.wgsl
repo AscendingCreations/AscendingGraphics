@@ -153,11 +153,12 @@ fn distance_alg(
 fn fragment(vertex: VertexOutput,) -> @location(0) vec4<f32> {
     let coords = (vertex.container_data.xy + vertex.uv.xy) / vertex.tex_size;
 
-    let c1 = select(
-        vec4<f32>(0.0), 
-        textureSampleLevel(tex, tex_sample, coords, vertex.layer, 1.0),
-        vertex.container_data[2] > 0.0 && vertex.container_data[3] > 0.0
-    );
+    var c1 = vec4<f32>(0.0);
+    
+    if vertex.container_data[2] > 0.0 && vertex.container_data[3] > 0.0 {
+        c1 = textureSampleLevel(tex, tex_sample, coords, vertex.layer, 1.0);
+    }
+        
     let container_color = select(vertex.color, c1  * vertex.color, vertex.container_data[2] > 0.0 && vertex.container_data[3] > 0.0);
     let radius = vertex.radius;
     let clippy = vec2<f32>(vertex.clip_position.x, global.size.y - vertex.clip_position.y);
