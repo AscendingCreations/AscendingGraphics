@@ -1,4 +1,5 @@
 #![allow(clippy::extra_unused_type_parameters)]
+#![recursion_limit = "256"]
 mod animated_images;
 mod atlas_set;
 mod error;
