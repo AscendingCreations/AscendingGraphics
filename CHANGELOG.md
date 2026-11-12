@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+## 0.47.1 (12. November, 2026)
+
+Changed
+- Optimized shaders to remove Select from heavy function calls. 
+- Clippy fixes
+
 ## 0.47.0 (17. October, 2026)
 
 Changed
